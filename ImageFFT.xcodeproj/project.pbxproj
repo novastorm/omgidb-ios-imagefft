@@ -9,7 +9,7 @@
 /* Begin PBXBuildFile section */
 		3E7BAFDA19A285EA00BB6A3B /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 3E7BAFD919A285EA00BB6A3B /* main.m */; };
 		3E7BAFDD19A285EA00BB6A3B /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 3E7BAFDC19A285EA00BB6A3B /* AppDelegate.m */; };
-		3E7BAFE019A285EA00BB6A3B /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 3E7BAFDF19A285EA00BB6A3B /* ViewController.m */; };
+		3E7BAFE019A285EA00BB6A3B /* ImageFFTViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 3E7BAFDF19A285EA00BB6A3B /* ImageFFTViewController.m */; };
 		3E7BAFE319A285EA00BB6A3B /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 3E7BAFE119A285EA00BB6A3B /* Main.storyboard */; };
 		3E7BAFE519A285EA00BB6A3B /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3E7BAFE419A285EA00BB6A3B /* Images.xcassets */; };
 		3E7BAFF119A285EA00BB6A3B /* ImageFFTTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 3E7BAFF019A285EA00BB6A3B /* ImageFFTTests.m */; };
@@ -31,8 +31,8 @@
 		3E7BAFD919A285EA00BB6A3B /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		3E7BAFDB19A285EA00BB6A3B /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		3E7BAFDC19A285EA00BB6A3B /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
-		3E7BAFDE19A285EA00BB6A3B /* ViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ViewController.h; sourceTree = "<group>"; };
-		3E7BAFDF19A285EA00BB6A3B /* ViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ViewController.m; sourceTree = "<group>"; };
+		3E7BAFDE19A285EA00BB6A3B /* ImageFFTViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ImageFFTViewController.h; sourceTree = "<group>"; };
+		3E7BAFDF19A285EA00BB6A3B /* ImageFFTViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ImageFFTViewController.m; sourceTree = "<group>"; };
 		3E7BAFE219A285EA00BB6A3B /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		3E7BAFE419A285EA00BB6A3B /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
 		3E7BAFEA19A285EA00BB6A3B /* ImageFFTTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ImageFFTTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -81,8 +81,8 @@
 			children = (
 				3E7BAFDB19A285EA00BB6A3B /* AppDelegate.h */,
 				3E7BAFDC19A285EA00BB6A3B /* AppDelegate.m */,
-				3E7BAFDE19A285EA00BB6A3B /* ViewController.h */,
-				3E7BAFDF19A285EA00BB6A3B /* ViewController.m */,
+				3E7BAFDE19A285EA00BB6A3B /* ImageFFTViewController.h */,
+				3E7BAFDF19A285EA00BB6A3B /* ImageFFTViewController.m */,
 				3E7BAFE119A285EA00BB6A3B /* Main.storyboard */,
 				3E7BAFE419A285EA00BB6A3B /* Images.xcassets */,
 				3E7BAFD719A285EA00BB6A3B /* Supporting Files */,
@@ -215,7 +215,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				3E7BAFE019A285EA00BB6A3B /* ViewController.m in Sources */,
+				3E7BAFE019A285EA00BB6A3B /* ImageFFTViewController.m in Sources */,
 				3E7BAFDD19A285EA00BB6A3B /* AppDelegate.m in Sources */,
 				3E7BAFDA19A285EA00BB6A3B /* main.m in Sources */,
 			);
@@ -285,7 +285,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 7.1;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
@@ -320,7 +320,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 7.1;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
 				VALIDATE_PRODUCT = YES;
