@@ -402,6 +402,7 @@
 				3E7BAFF619A285EA00BB6A3B /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		3E7BAFF719A285EA00BB6A3B /* Build configuration list for PBXNativeTarget "ImageFFTTests" */ = {
 			isa = XCConfigurationList;
@@ -410,6 +411,7 @@
 				3E7BAFF919A285EA00BB6A3B /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

@@ -11,10 +11,16 @@
 #import "ImageFFTViewController.h"
 
 @interface ImageFFTViewController () {
-    EAGLContext* _context;
+    CIContext * _CIContext;
+    EAGLContext* _EAGLContext;
+    
+    CVOpenGLESTextureRef _lumaTexture;
+    CVOpenGLESTextureRef _chromaTexture;
     
     NSString* _sessionPreset;
     AVCaptureSession* _session;
+    
+    CVOpenGLESTextureCacheRef _videoTextureCache;
 }
 
 @end
@@ -24,14 +30,16 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
 
-    _context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
+    _EAGLContext = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
     
-    if (! _context) {
+    _CIContext = [CIContext contextWithEAGLContext:_EAGLContext options:@{kCIContextOutputColorSpace: [NSNull null]} ];
+    
+    if (! _EAGLContext) {
         NSLog(@"Failed to create ES context");
     }
     
     GLKView * view = (GLKView *)self.view;
-    view.context = _context;
+    view.context = _EAGLContext;
     self.preferredFramesPerSecond = 60;
     
     view.contentScaleFactor = [UIScreen mainScreen].scale;
@@ -51,7 +59,7 @@
 /******************************************************************************/
 - (void) setupGL
 {
-    [EAGLContext setCurrentContext:_context];
+    [EAGLContext setCurrentContext:_EAGLContext];
     
 //    [self loadShaders];
 }
@@ -59,6 +67,17 @@
 /******************************************************************************/
 - (void) setupAVCapture
 {
+#if COREVIDEO_USE_EAGLCONTEXT_CLASS_IN_API
+    CVReturn err = CVOpenGLESTextureCacheCreate(kCFAllocatorDefault, NULL, _EAGLContext, NULL, &_videoTextureCache);
+#else
+    CVReturn err = CVOpenGLESTextureCacheCreate(kCFAllocatorDefault, NULL, (__bridge void *)_context, NULL, &_videoTextureCache);
+#endif
+    if (err)
+    {
+        NSLog(@"Error at CVOpenGLESTextureCacheCreate %d", err);
+        return;
+    }
+    
     _session = [[AVCaptureSession alloc] init];
     [_session beginConfiguration];
     
@@ -86,6 +105,58 @@
     [_session commitConfiguration];
     
     [_session startRunning];
+}
+
+/******************************************************************************/
+- (void) captureOutput:(AVCaptureOutput *)captureOutput
+	didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
+	fromConnection:(AVCaptureConnection *)connection
+{
+    if (! _videoTextureCache) {
+        NSLog(@"No video texture cache");
+        return;
+    }
+
+    CVReturn err;
+    CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
+
+//    CVPixelBufferLockBaseAddress(pixelBuffer, 0);
+//    GLubyte * rawImageBytes = CVPixelBufferGetBaseAddress(pixelBuffer);
+    
+//    NSLog(@"%u", CVPixelBufferGetPlaneCount(imageBuffer));
+//    NSLog(@"%u", CVPixelBufferGetDataSize(imageBuffer));
+    
+//    size_t bytesPerRow = CVPixelBufferGetBytesPerRow(pixelBuffer);
+//    NSData * dataForRawBytes = [NSData dataWithBytes:rawImageBytes length:bytesPerRow];
+
+    CIImage * sourceImage = [CIImage imageWithCVPixelBuffer:imageBuffer options:nil];
+    GLKView * view = (GLKView *)self.view;
+    [view bindDrawable];
+    
+    CGRect bounds = CGRectZero;
+    bounds.size.width = view.drawableWidth;
+    bounds.size.height = view.drawableHeight;
+    
+    [_CIContext drawImage:sourceImage inRect:bounds fromRect:sourceImage.extent];
+    [view display];
+    
+    [self cleanUpTextures];
+}
+
+/******************************************************************************/
+- (void) cleanUpTextures
+{
+    if (_lumaTexture) {
+        CFRelease(_lumaTexture);
+        _lumaTexture = NULL;
+    }
+    
+    if (_chromaTexture) {
+        CFRelease(_chromaTexture);
+        _chromaTexture = NULL;
+    }
+    
+    CVOpenGLESTextureCacheFlush(_videoTextureCache, 0);
 }
 
 /******************************************************************************/
