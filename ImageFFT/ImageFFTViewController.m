@@ -13,6 +13,7 @@
 @interface ImageFFTViewController () {
     CIContext * _CIContext;
     EAGLContext* _EAGLContext;
+    CGRect _videoPreviewViewBounds;
     
     CVOpenGLESTextureRef _lumaTexture;
     CVOpenGLESTextureRef _chromaTexture;
@@ -44,7 +45,13 @@
     
     view.contentScaleFactor = [UIScreen mainScreen].scale;
     
-    _sessionPreset = AVCaptureSessionPreset640x480;
+    _sessionPreset = AVCaptureSessionPreset352x288;
+    
+    // TODO: fix bounds. bounds are zero for some reason.
+    
+    _videoPreviewViewBounds = CGRectZero;
+    _videoPreviewViewBounds.size.width = view.drawableWidth;
+    _videoPreviewViewBounds.size.height = view.drawableHeight;
     
     [self setupGL];
     
@@ -117,7 +124,7 @@
         return;
     }
 
-    CVReturn err;
+//    CVReturn err;
     CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
 
 //    CVPixelBufferLockBaseAddress(pixelBuffer, 0);
@@ -130,14 +137,63 @@
 //    NSData * dataForRawBytes = [NSData dataWithBytes:rawImageBytes length:bytesPerRow];
 
     CIImage * sourceImage = [CIImage imageWithCVPixelBuffer:imageBuffer options:nil];
+    CGRect sourceExtent = sourceImage.extent;
+    
     GLKView * view = (GLKView *)self.view;
+
+//    CGFloat sourceAspect = sourceExtent.size.width / sourceExtent.size.height;
+//    CGFloat previewAspect = _videoPreviewViewBounds.size.width  / _videoPreviewViewBounds.size.height;
+    
+    // we want to maintain the aspect radio of the screen size, so we clip the video image
+    CGRect drawRect = sourceExtent;
+    drawRect.size.width = _videoPreviewViewBounds.size.height;
+    drawRect.size.height = _videoPreviewViewBounds.size.height;
+    
+//    if (sourceAspect > previewAspect)
+//    {
+//        // use full height of the video image, and center crop the width
+//        drawRect.origin.x += (drawRect.size.width - drawRect.size.height * previewAspect) / 2.0;
+//        drawRect.size.width = drawRect.size.height * previewAspect;
+//    }
+//    else
+//    {
+//        // use full width of the video image, and center crop the height
+//        drawRect.origin.y += (drawRect.size.height - drawRect.size.width / previewAspect) / 2.0;
+//        drawRect.size.height = drawRect.size.width / previewAspect;
+//    }
+
     [view bindDrawable];
     
-    CGRect bounds = CGRectZero;
-    bounds.size.width = view.drawableWidth;
-    bounds.size.height = view.drawableHeight;
+    CGRect cropRect = sourceExtent;
+    cropRect.size.width = 256;
+    cropRect.size.height = 256;
     
-    [_CIContext drawImage:sourceImage inRect:bounds fromRect:sourceImage.extent];
+    CIImage * filteredImage = [sourceImage imageByCroppingToRect:cropRect];
+//    CIImage * filteredImage;
+    
+//    CVPixelBufferRef pixelBuffer = (CVPixelBufferRef)imageBuffer;
+//    CVPixelBufferCreate(NULL
+//    	, 256
+//        , 256
+//        , [NSDictionary
+//           dictionaryWithObject:[NSNumber numberWithInt:kCVPixelFormatType_420YpCbCr8BiPlanarFullRange]
+//           forKey:(id)kCVPixelBufferPixelFormatTypeKey]
+//        , NULL
+//        , &pixelBuffer
+//        );
+    
+//    NSLog(@"%lu", CVPixelBufferGetDataSize(pixelBuffer));
+//    NSLog(@"%lu", CVPixelBufferGetBytesPerRow(pixelBuffer));
+//    NSLog(@"H[%lu]W[%lu]"
+//    	, CVPixelBufferGetHeight(pixelBuffer)
+//        , CVPixelBufferGetWidth(pixelBuffer)
+//        );
+    
+//    filteredImage = [CIImage imageWithCVPixelBuffer:pixelBuffer];
+
+    CIImage * drawImage = filteredImage;
+    
+    [_CIContext drawImage:drawImage inRect:drawRect fromRect:sourceImage.extent];
     [view display];
     
     [self cleanUpTextures];
