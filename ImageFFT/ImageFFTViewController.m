@@ -50,8 +50,8 @@
     // TODO: fix bounds. bounds are zero for some reason.
     
     _videoPreviewViewBounds = CGRectZero;
-    _videoPreviewViewBounds.size.width = view.drawableWidth;
-    _videoPreviewViewBounds.size.height = view.drawableHeight;
+    _videoPreviewViewBounds.size.width = view.frame.size.width;
+    _videoPreviewViewBounds.size.height = view.frame.size.height;
     
     [self setupGL];
     
@@ -104,6 +104,7 @@
     [dataOutput setAlwaysDiscardsLateVideoFrames:YES];
     [dataOutput setVideoSettings:[NSDictionary
     	dictionaryWithObject:[NSNumber numberWithInt:kCVPixelFormatType_420YpCbCr8BiPlanarFullRange]
+//        dictionaryWithObject:[NSNumber numberWithInt:kCVPixelFormatType_32BGRA]
         forKey:(id)kCVPixelBufferPixelFormatTypeKey]
         ];
     [dataOutput setSampleBufferDelegate:self queue:dispatch_get_main_queue()];
@@ -124,79 +125,159 @@
         return;
     }
 
-//    CVReturn err;
-    CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
+    CIImage * sourceImage = [self imageFromSampleBuffer:sampleBuffer];
+  
+    CIImage * drawImage = [self filterImage:sourceImage];
 
-//    CVPixelBufferLockBaseAddress(pixelBuffer, 0);
-//    GLubyte * rawImageBytes = CVPixelBufferGetBaseAddress(pixelBuffer);
-    
-//    NSLog(@"%u", CVPixelBufferGetPlaneCount(imageBuffer));
-//    NSLog(@"%u", CVPixelBufferGetDataSize(imageBuffer));
-    
-//    size_t bytesPerRow = CVPixelBufferGetBytesPerRow(pixelBuffer);
-//    NSData * dataForRawBytes = [NSData dataWithBytes:rawImageBytes length:bytesPerRow];
+    CGRect sourceRect = sourceImage.extent;
+    sourceRect.size.width = sourceRect.size.height;
 
-    CIImage * sourceImage = [CIImage imageWithCVPixelBuffer:imageBuffer options:nil];
-    CGRect sourceExtent = sourceImage.extent;
+    CGRect drawRect;
+    drawRect.size.width = self.view.frame.size.height;
+    drawRect.size.height = self.view.frame.size.height;
     
-    GLKView * view = (GLKView *)self.view;
-
-//    CGFloat sourceAspect = sourceExtent.size.width / sourceExtent.size.height;
-//    CGFloat previewAspect = _videoPreviewViewBounds.size.width  / _videoPreviewViewBounds.size.height;
-    
-    // we want to maintain the aspect radio of the screen size, so we clip the video image
-    CGRect drawRect = sourceExtent;
-    drawRect.size.width = _videoPreviewViewBounds.size.height;
-    drawRect.size.height = _videoPreviewViewBounds.size.height;
-    
-//    if (sourceAspect > previewAspect)
-//    {
-//        // use full height of the video image, and center crop the width
-//        drawRect.origin.x += (drawRect.size.width - drawRect.size.height * previewAspect) / 2.0;
-//        drawRect.size.width = drawRect.size.height * previewAspect;
-//    }
-//    else
-//    {
-//        // use full width of the video image, and center crop the height
-//        drawRect.origin.y += (drawRect.size.height - drawRect.size.width / previewAspect) / 2.0;
-//        drawRect.size.height = drawRect.size.width / previewAspect;
-//    }
-
-    [view bindDrawable];
-    
-    CGRect cropRect = sourceExtent;
-    cropRect.size.width = 256;
-    cropRect.size.height = 256;
-    
-    CIImage * filteredImage = [sourceImage imageByCroppingToRect:cropRect];
-//    CIImage * filteredImage;
-    
-//    CVPixelBufferRef pixelBuffer = (CVPixelBufferRef)imageBuffer;
-//    CVPixelBufferCreate(NULL
-//    	, 256
-//        , 256
-//        , [NSDictionary
-//           dictionaryWithObject:[NSNumber numberWithInt:kCVPixelFormatType_420YpCbCr8BiPlanarFullRange]
-//           forKey:(id)kCVPixelBufferPixelFormatTypeKey]
-//        , NULL
-//        , &pixelBuffer
-//        );
-    
-//    NSLog(@"%lu", CVPixelBufferGetDataSize(pixelBuffer));
-//    NSLog(@"%lu", CVPixelBufferGetBytesPerRow(pixelBuffer));
-//    NSLog(@"H[%lu]W[%lu]"
-//    	, CVPixelBufferGetHeight(pixelBuffer)
-//        , CVPixelBufferGetWidth(pixelBuffer)
-//        );
-    
-//    filteredImage = [CIImage imageWithCVPixelBuffer:pixelBuffer];
-
-    CIImage * drawImage = filteredImage;
-    
-    [_CIContext drawImage:drawImage inRect:drawRect fromRect:sourceImage.extent];
-    [view display];
+    [_CIContext drawImage:drawImage inRect:drawRect fromRect:sourceRect];
+    [(GLKView *)self.view display];
     
     [self cleanUpTextures];
+}
+
+/******************************************************************************
+ Create a CIImage from sample buffer data
+ ******************************************************************************/
+- (CIImage *) imageFromSampleBuffer:(CMSampleBufferRef) sampleBuffer
+{
+    // Get a CMSampleBuffer's Core Video image buffer for the media data
+    CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
+    // Lock the base address of the pixel buffer
+    CVPixelBufferLockBaseAddress(imageBuffer, 0);
+    
+    // Get the number of bytes per row for the pixel buffer
+//    void *baseAddress = CVPixelBufferGetBaseAddress(imageBuffer);
+    
+    // Get the number of bytes per row for the pixel buffer
+//    size_t bytesPerRow = CVPixelBufferGetBytesPerRow(imageBuffer);
+    // Get the pixel buffer width and height
+//    size_t width = CVPixelBufferGetWidth(imageBuffer);
+//    size_t height = CVPixelBufferGetHeight(imageBuffer);
+    
+//    size_t planes = CVPixelBufferGetPlaneCount(imageBuffer);
+    
+//    NSLog(@"S[%lu] P[%lu]"
+//          , CVPixelBufferGetDataSize(imageBuffer)
+//          , planes
+//    );
+//    
+//    for (size_t i = 0; i < planes; i++) {
+//        NSLog(@"%lu: BpR[%lu] W[%lu] H[%lu]"
+//              , i
+//              , CVPixelBufferGetBytesPerRowOfPlane(imageBuffer, i)
+//              , CVPixelBufferGetWidthOfPlane(imageBuffer, i)
+//              , CVPixelBufferGetHeightOfPlane(imageBuffer, i)
+//        );
+//    }
+    
+//    // Create a device-dependent RGB color space
+//    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+//    
+//    // Create a bitmap graphics context with the sample buffer data
+//    CGContextRef context = CGBitmapContextCreate(baseAddress, width, height, 8,
+//                                                 bytesPerRow, colorSpace, kCGBitmapByteOrder32Little | kCGImageAlphaPremultipliedFirst);
+//    // Create a Quartz image from the pixel data in the bitmap graphics context
+//    CGImageRef quartzImage = CGBitmapContextCreateImage(context);
+//    // Unlock the pixel buffer
+//    CVPixelBufferUnlockBaseAddress(imageBuffer,0);
+    
+    // Free up the context and color space
+//    CGContextRelease(context);
+//    CGColorSpaceRelease(colorSpace);
+    
+    // Create an image object from the Quartz image
+//    UIImage *image = [UIImage imageWithCGImage:quartzImage];
+    
+    // Release the Quartz image
+//    CGImageRelease(quartzImage);
+
+    CIImage * image = [CIImage imageWithCVPixelBuffer:imageBuffer];
+    
+    image = [self filterSquareImage:image];
+    image = [self filterGrayscaleImage:image];
+    
+    CGRect cropRect = image.extent;
+    
+    if (cropRect.size.width < cropRect.size.height) {
+        cropRect.size.height = cropRect.size.width;
+    }
+    else {
+        cropRect.size.width = cropRect.size.height;
+    }
+
+    [_CIContext render:image toCVPixelBuffer:imageBuffer bounds:cropRect colorSpace:CGColorSpaceCreateDeviceRGB()];
+//    [_CIContext render:image toCVPixelBuffer:imageBuffer];
+
+//    size_t planes = CVPixelBufferGetPlaneCount(imageBuffer);
+//
+//    NSLog(@"S[%lu] P[%lu]"
+//          , CVPixelBufferGetDataSize(imageBuffer)
+//          , planes
+//    );
+//
+//    for (size_t i = 0; i < planes; i++) {
+//        NSLog(@"%lu: BpR[%lu] W[%lu] H[%lu]"
+//              , i
+//              , CVPixelBufferGetBytesPerRowOfPlane(imageBuffer, i)
+//              , CVPixelBufferGetWidthOfPlane(imageBuffer, i)
+//              , CVPixelBufferGetHeightOfPlane(imageBuffer, i)
+//        );
+//    }
+    CVPixelBufferUnlockBaseAddress(imageBuffer,0);
+
+    return [CIImage imageWithCVPixelBuffer:imageBuffer];
+}
+
+/******************************************************************************
+ Create a Square CIImage from input CIImage
+ ******************************************************************************/
+- (CIImage *) filterSquareImage:(CIImage *)inImage
+{
+
+    // crop to square
+    CGRect cropRect = inImage.extent;
+
+    if (cropRect.size.width < cropRect.size.height) {
+        cropRect.size.height = cropRect.size.width;
+    }
+    else {
+        cropRect.size.width = cropRect.size.height;
+    }
+    
+    CIFilter * filter = [CIFilter filterWithName:@"CICrop"];
+    [filter setValue:inImage forKey:@"inputImage"];
+    [filter setValue:[CIVector vectorWithCGRect:cropRect] forKey:@"inputRectangle"];
+
+    return [filter valueForKey:kCIOutputImageKey];
+}
+
+/******************************************************************************
+ grayscale the image
+ ******************************************************************************/
+- (CIImage *) filterGrayscaleImage:(CIImage *)inImage
+{
+    CIFilter * filter = [CIFilter filterWithName:@"CIMaximumComponent"];
+    
+    [filter setValue:inImage forKey:@"inputImage"];
+    
+    return [filter valueForKey:kCIOutputImageKey];
+}
+
+/******************************************************************************
+ Create a Filtered CIImage from input CIImage
+ ******************************************************************************/
+- (CIImage *) filterImage:(CIImage *)inImage
+{
+    CIImage * outImage = inImage;
+    
+    return outImage;
 }
 
 /******************************************************************************/
