@@ -125,11 +125,9 @@
         return;
     }
 
-    CIImage * sourceImage = [self imageFromSampleBuffer:sampleBuffer];
-  
-    CIImage * drawImage = [self filterImage:sourceImage];
+    CIImage * drawImage = [self imageFromSampleBuffer:sampleBuffer];
 
-    CGRect sourceRect = sourceImage.extent;
+    CGRect sourceRect = drawImage.extent;
     sourceRect.size.width = sourceRect.size.height;
 
     CGRect drawRect;
@@ -203,16 +201,16 @@
     image = [self filterSquareImage:image];
     image = [self filterGrayscaleImage:image];
     
-    CGRect cropRect = image.extent;
-    
-    if (cropRect.size.width < cropRect.size.height) {
-        cropRect.size.height = cropRect.size.width;
-    }
-    else {
-        cropRect.size.width = cropRect.size.height;
-    }
+//    CGRect cropRect = image.extent;
+//    
+//    if (cropRect.size.width < cropRect.size.height) {
+//        cropRect.size.height = cropRect.size.width;
+//    }
+//    else {
+//        cropRect.size.width = cropRect.size.height;
+//    }
 
-    [_CIContext render:image toCVPixelBuffer:imageBuffer bounds:cropRect colorSpace:CGColorSpaceCreateDeviceRGB()];
+//    [_CIContext render:image toCVPixelBuffer:imageBuffer bounds:cropRect colorSpace:CGColorSpaceCreateDeviceRGB()];
 //    [_CIContext render:image toCVPixelBuffer:imageBuffer];
 
 //    size_t planes = CVPixelBufferGetPlaneCount(imageBuffer);
@@ -230,9 +228,12 @@
 //              , CVPixelBufferGetHeightOfPlane(imageBuffer, i)
 //        );
 //    }
+
+    image = [self filterFFTImage:image];
+    
     CVPixelBufferUnlockBaseAddress(imageBuffer,0);
 
-    return [CIImage imageWithCVPixelBuffer:imageBuffer];
+    return image;
 }
 
 /******************************************************************************
@@ -271,13 +272,11 @@
 }
 
 /******************************************************************************
- Create a Filtered CIImage from input CIImage
+ Create a FFT CIImage from input CIImage
  ******************************************************************************/
-- (CIImage *) filterImage:(CIImage *)inImage
+- (CIImage *) filterFFTImage:(CIImage *) inImage
 {
-    CIImage * outImage = inImage;
-    
-    return outImage;
+    return inImage;
 }
 
 /******************************************************************************/
