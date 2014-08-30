@@ -6,6 +6,7 @@
 //  Copyright (c) 2014 Adland Lee. All rights reserved.
 //
 
+#import <Accelerate/Accelerate.h>
 #import <CoreVideo/CVOpenGLESTextureCache.h>
 
 #import "ImageFFTViewController.h"
@@ -128,7 +129,7 @@
     CIImage * drawImage = [self imageFromSampleBuffer:sampleBuffer];
 
     CGRect sourceRect = drawImage.extent;
-    sourceRect.size.width = sourceRect.size.height;
+//    sourceRect.size.width = sourceRect.size.height;
 
     CGRect drawRect;
     drawRect.size.width = self.view.frame.size.height;
@@ -158,80 +159,57 @@
     // Get the pixel buffer width and height
 //    size_t width = CVPixelBufferGetWidth(imageBuffer);
 //    size_t height = CVPixelBufferGetHeight(imageBuffer);
+
+    CIImage * image = [CIImage imageWithCVPixelBuffer:imageBuffer];
+
+    size_t width = 256;
+    size_t height = 256;
+    CGRect bounds = CGRectMake(0, 0, 256, 256);
+
+    Pixel_8 * bitmap =  (Pixel_8 *)malloc(width * height * sizeof(Pixel_8));
+
+    size_t bytesPerPixel = 1;
+    size_t bitsPerComponent = 8;
+    size_t bytesPerRow = bytesPerPixel * width;
     
-//    size_t planes = CVPixelBufferGetPlaneCount(imageBuffer);
+    // Create a device-dependent RGB color space
+    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceGray();
+
+    CGBitmapInfo bitmapInfo = kCGImageAlphaNone;
     
-//    NSLog(@"S[%lu] P[%lu]"
-//          , CVPixelBufferGetDataSize(imageBuffer)
-//          , planes
-//    );
-//    
-//    for (size_t i = 0; i < planes; i++) {
-//        NSLog(@"%lu: BpR[%lu] W[%lu] H[%lu]"
-//              , i
-//              , CVPixelBufferGetBytesPerRowOfPlane(imageBuffer, i)
-//              , CVPixelBufferGetWidthOfPlane(imageBuffer, i)
-//              , CVPixelBufferGetHeightOfPlane(imageBuffer, i)
-//        );
-//    }
+    // Create a bitmap graphics context with the sample buffer data
+    CGContextRef context = CGBitmapContextCreate(bitmap, width, height, bitsPerComponent,
+                                                 bytesPerRow, colorSpace, bitmapInfo);
+
+    CGContextDrawImage(context, bounds, image);
     
-//    // Create a device-dependent RGB color space
-//    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
-//    
-//    // Create a bitmap graphics context with the sample buffer data
-//    CGContextRef context = CGBitmapContextCreate(baseAddress, width, height, 8,
-//                                                 bytesPerRow, colorSpace, kCGBitmapByteOrder32Little | kCGImageAlphaPremultipliedFirst);
-//    // Create a Quartz image from the pixel data in the bitmap graphics context
+    NSLog(@"[%02hhX] [%02hhX]", *bitmap, *(bitmap+1));
+    
+    // Create a Quartz image from the pixel data in the bitmap graphics context
 //    CGImageRef quartzImage = CGBitmapContextCreateImage(context);
-//    // Unlock the pixel buffer
-//    CVPixelBufferUnlockBaseAddress(imageBuffer,0);
     
-    // Free up the context and color space
-//    CGContextRelease(context);
-//    CGColorSpaceRelease(colorSpace);
+    // Unlock the pixel buffer
+    CVPixelBufferUnlockBaseAddress(imageBuffer,0);
     
     // Create an image object from the Quartz image
 //    UIImage *image = [UIImage imageWithCGImage:quartzImage];
+//    CGSize size = CGSizeMake(bounds.size.width, bounds.size.height);
+//    NSData *bitmapData = [NSData dataWithBytes:bitmap length:bytesPerRow * height];
+//    image = [CIImage imageWithBitmapData:bitmapData bytesPerRow:bytesPerRow size:size format:format colorSpace:colorSpace];
+    
+    // Free up the context and color space
+    //    CGContextRelease(context);
+    CGColorSpaceRelease(colorSpace);
     
     // Release the Quartz image
 //    CGImageRelease(quartzImage);
 
-    CIImage * image = [CIImage imageWithCVPixelBuffer:imageBuffer];
     
-    image = [self filterSquareImage:image];
-    image = [self filterGrayscaleImage:image];
-    
-//    CGRect cropRect = image.extent;
-//    
-//    if (cropRect.size.width < cropRect.size.height) {
-//        cropRect.size.height = cropRect.size.width;
-//    }
-//    else {
-//        cropRect.size.width = cropRect.size.height;
-//    }
-
-//    [_CIContext render:image toCVPixelBuffer:imageBuffer bounds:cropRect colorSpace:CGColorSpaceCreateDeviceRGB()];
-//    [_CIContext render:image toCVPixelBuffer:imageBuffer];
-
-//    size_t planes = CVPixelBufferGetPlaneCount(imageBuffer);
-//
-//    NSLog(@"S[%lu] P[%lu]"
-//          , CVPixelBufferGetDataSize(imageBuffer)
-//          , planes
-//    );
-//
-//    for (size_t i = 0; i < planes; i++) {
-//        NSLog(@"%lu: BpR[%lu] W[%lu] H[%lu]"
-//              , i
-//              , CVPixelBufferGetBytesPerRowOfPlane(imageBuffer, i)
-//              , CVPixelBufferGetWidthOfPlane(imageBuffer, i)
-//              , CVPixelBufferGetHeightOfPlane(imageBuffer, i)
-//        );
-//    }
-
+//    image = [self filterSquareImage:image];
+//    image = [self filterGrayscaleImage:image];
     image = [self filterFFTImage:image];
     
-    CVPixelBufferUnlockBaseAddress(imageBuffer,0);
+//    CVPixelBufferUnlockBaseAddress(imageBuffer,0);
 
     return image;
 }
@@ -276,7 +254,16 @@
  ******************************************************************************/
 - (CIImage *) filterFFTImage:(CIImage *) inImage
 {
-    return inImage;
+    CIImage * outImage;
+
+    size_t width = inImage.extent.size.width;
+    size_t height = inImage.extent.size.height;
+    
+    NSLog(@"W[%lu] H[%lu]", width, height);
+    
+    outImage = inImage;
+
+    return outImage;
 }
 
 /******************************************************************************/
