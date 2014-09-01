@@ -160,7 +160,15 @@
 //    size_t width = CVPixelBufferGetWidth(imageBuffer);
 //    size_t height = CVPixelBufferGetHeight(imageBuffer);
 
-    CIImage * image = [CIImage imageWithCVPixelBuffer:imageBuffer];
+    CIImage * aCIImage = [CIImage imageWithCVPixelBuffer:imageBuffer];
+    
+    aCIImage = [self filterSquareImage:aCIImage];
+    aCIImage = [self filterGrayscaleImage:aCIImage];
+    aCIImage = [self filterFFTImage:aCIImage];
+    
+    UIImage * aUIImage = [UIImage imageWithCIImage:aCIImage];
+    
+    return [aUIImage CIImage];
 
     size_t width = 256;
     size_t height = 256;
@@ -180,25 +188,44 @@
     // Create a bitmap graphics context with the sample buffer data
     CGContextRef context = CGBitmapContextCreate(bitmap, width, height, bitsPerComponent,
                                                  bytesPerRow, colorSpace, bitmapInfo);
-
-    CGContextDrawImage(context, bounds, image);
     
-    NSLog(@"[%02hhX] [%02hhX]", *bitmap, *(bitmap+1));
+    if (context == NULL) {
+        NSLog(@"Could not create CGContext");
+        return nil;
+    }
+
+    CGContextDrawImage(context, bounds, [aUIImage CGImage]);
+    
+//    NSLog(@"[%02hhX] [%02hhX]", *bitmap, *(bitmap+1));
     
     // Create a Quartz image from the pixel data in the bitmap graphics context
-//    CGImageRef quartzImage = CGBitmapContextCreateImage(context);
+    CGImageRef quartzImage = CGBitmapContextCreateImage(context);
     
     // Unlock the pixel buffer
     CVPixelBufferUnlockBaseAddress(imageBuffer,0);
     
     // Create an image object from the Quartz image
-//    UIImage *image = [UIImage imageWithCGImage:quartzImage];
+    aUIImage = [UIImage imageWithCGImage:quartzImage];
 //    CGSize size = CGSizeMake(bounds.size.width, bounds.size.height);
-//    NSData *bitmapData = [NSData dataWithBytes:bitmap length:bytesPerRow * height];
-//    image = [CIImage imageWithBitmapData:bitmapData bytesPerRow:bytesPerRow size:size format:format colorSpace:colorSpace];
+//    NSData * bitmapData = [NSData dataWithBytesNoCopy:bitmap length:bytesPerRow * height];
+//
+//    if (bitmapData == nil) {
+//        NSLog(@"Could not create bitmapData from bitmap");
+//        return nil;
+//    }
+//    
+//    NSLog(@"%lu", (unsigned long)bitmapData.length);
+
+////    aCIImage = [CIImage imageWithBitmapData:bitmapData bytesPerRow:bytesPerRow size:size format:format colorSpace:colorSpace];
+//    aUIImage = [UIImage imageWithData:bitmapData];
+//    
+//    if (aUIImage == nil) {
+//        NSLog(@"Could not create UIImage from bitmapData");
+//        return nil;
+//    }
     
     // Free up the context and color space
-    //    CGContextRelease(context);
+    CGContextRelease(context);
     CGColorSpaceRelease(colorSpace);
     
     // Release the Quartz image
@@ -207,11 +234,11 @@
     
 //    image = [self filterSquareImage:image];
 //    image = [self filterGrayscaleImage:image];
-    image = [self filterFFTImage:image];
+    aCIImage = [self filterFFTImage:[aUIImage CIImage]];
     
 //    CVPixelBufferUnlockBaseAddress(imageBuffer,0);
 
-    return image;
+    return aCIImage;
 }
 
 /******************************************************************************
@@ -259,9 +286,22 @@
     size_t width = inImage.extent.size.width;
     size_t height = inImage.extent.size.height;
     
-    NSLog(@"W[%lu] H[%lu]", width, height);
+    NSLog(@"FFT input W[%lu] H[%lu]", width, height);
     
-    outImage = inImage;
+    float scale = 255.0f / width;
+    
+    CIFilter * filter = [CIFilter filterWithName:@"CILanczosScaleTransform"
+    	keysAndValues:
+            kCIInputImageKey, inImage
+            , @"inputScale", [NSNumber numberWithFloat:scale]
+            , nil];
+    
+    outImage = [filter valueForKey:kCIOutputImageKey];
+
+    NSLog(@"FFT output W[%f] H[%f]"
+    	, outImage.extent.size.width
+        , outImage.extent.size.height
+        );
 
     return outImage;
 }
