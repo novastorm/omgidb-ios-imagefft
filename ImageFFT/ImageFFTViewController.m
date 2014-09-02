@@ -27,6 +27,9 @@
     size_t _FFTWidth;
     size_t _FFTHeight;
     Pixel_8 * _bitmap;
+
+    size_t _Log2NWidth;
+    size_t _Log2NHeight;
     
     FFTSetup _ImageAnalysis;
     DSPSplitComplex _DSPSplitComplex;
@@ -57,8 +60,6 @@
     view.contentScaleFactor = [UIScreen mainScreen].scale;
     
     _sessionPreset = AVCaptureSessionPreset352x288;
-    
-    // TODO: fix bounds. bounds are zero for some reason.
     
     _videoPreviewViewBounds = CGRectZero;
     _videoPreviewViewBounds.size.width = view.frame.size.width;
@@ -133,6 +134,19 @@
     _FFTHeight = 256;
     
     _bitmap =  (Pixel_8 *)malloc(sizeof(Pixel_8) * _FFTWidth * _FFTHeight);
+    
+    _Log2NWidth = log2(_FFTWidth);
+    _Log2NHeight = log2(_FFTHeight);
+    _Log2N = _Log2NWidth + _Log2NHeight;
+    
+    _ImageAnalysis = NULL;
+    _FFTNormalizationFactor = 1.0;
+    _FFTLength = 1 << _Log2N;
+    
+    _DSPSplitComplex.realp = (Float32 *)calloc(_FFTLength, sizeof(Float32));
+    _DSPSplitComplex.imagp = (Float32 *)calloc(_FFTLength, sizeof(Float32));
+    
+    _ImageAnalysis = vDSP_create_fftsetup(_Log2N, kFFTRadix2);
 }
 
 /******************************************************************************/
@@ -290,6 +304,8 @@
     *pBit = 0xFF; *++pBit = 0xFF; *++pBit = 0xFF;
     
     NSLog(@"[%d]", *(bitmap + (127 * 255) + 127));
+    
+    [self computeFFTForBitmap:bitmap];
 
     // end process bitmap
 
@@ -333,6 +349,19 @@
     }
     
     CVOpenGLESTextureCacheFlush(_videoTextureCache, 0);
+}
+
+/******************************************************************************/
+- (void) computeFFTForBitmap:(Pixel_8 *)bitmap
+{
+    for (UInt32 i = 0; i < _FFTLength; ++i) {
+        _DSPSplitComplex.realp[i] = bitmap[i] / 255.0;
+        _DSPSplitComplex.imagp[i] = 0.0;
+    }
+    
+    for (UInt32 i = 0; i < _FFTLength; ++i) {
+        bitmap[i] = (int)(_DSPSplitComplex.realp[i] * 255.0);
+    }
 }
 
 /******************************************************************************/
