@@ -206,6 +206,7 @@
 //        , inImage.extent.size.height
 //        );
     
+    // scale image to 256x256
     float scale = 255.0f / width;
     
     CIFilter * filter = [CIFilter filterWithName:@"CILanczosScaleTransform"
@@ -254,6 +255,7 @@
         return nil;
     }
     
+    // draw image to bitmap context
     CGContextDrawImage(context, bounds, aCGImage);
     
     // process bitmap
