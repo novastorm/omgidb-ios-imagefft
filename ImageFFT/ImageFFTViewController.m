@@ -23,6 +23,10 @@
     AVCaptureSession* _session;
     
     CVOpenGLESTextureCacheRef _videoTextureCache;
+
+    size_t _FFTWidth;
+    size_t _FFTHeight;
+    Pixel_8 * _bitmap;
 }
 
 @end
@@ -53,6 +57,11 @@
     _videoPreviewViewBounds = CGRectZero;
     _videoPreviewViewBounds.size.width = view.frame.size.width;
     _videoPreviewViewBounds.size.height = view.frame.size.height;
+    
+    _FFTWidth = 256;
+    _FFTHeight = 256;
+    
+    _bitmap =  (Pixel_8 *)malloc(sizeof(Pixel_8) * _FFTWidth * _FFTHeight);
     
     [self setupGL];
     
@@ -222,14 +231,14 @@
 //        , inImage.extent.size.height
 //        );
     
-//    return [aUIImage CIImage];
+//    return inImage;
     
     width = inImage.extent.size.width;
     height = inImage.extent.size.height;
     
     CGRect bounds = CGRectMake(0, 0, width, height);
     
-    Pixel_8 * bitmap =  (Pixel_8 *)malloc(sizeof(Pixel_8) * width * height);
+    Pixel_8 * bitmap = _bitmap;
 
     size_t bytesPerPixel = 1;
     size_t bitsPerComponent = 8;
@@ -257,8 +266,12 @@
     
     // draw image to bitmap context
     CGContextDrawImage(context, bounds, aCGImage);
+    CGImageRelease(aCGImage);
     
     // process bitmap
+    
+    *(bitmap + (5 * 256) + 128) = 0xFF;
+    *(bitmap + (5 * 256) + 127) = 0x00;
     
     NSLog(@"[%d] [%d]", *bitmap, *(bitmap + 100));
 
