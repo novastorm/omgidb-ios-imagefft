@@ -27,6 +27,12 @@
     size_t _FFTWidth;
     size_t _FFTHeight;
     Pixel_8 * _bitmap;
+    
+    FFTSetup _ImageAnalysis;
+    DSPSplitComplex _DSPSplitComplex;
+    Float32 _FFTNormalizationFactor;
+    UInt32 _FFTLength;
+    UInt32 _Log2N;
 }
 
 @end
@@ -58,13 +64,8 @@
     _videoPreviewViewBounds.size.width = view.frame.size.width;
     _videoPreviewViewBounds.size.height = view.frame.size.height;
     
-    _FFTWidth = 256;
-    _FFTHeight = 256;
-    
-    _bitmap =  (Pixel_8 *)malloc(sizeof(Pixel_8) * _FFTWidth * _FFTHeight);
-    
+    [self setupFFTAnalysis];
     [self setupGL];
-    
     [self setupAVCapture];
 }
 
@@ -123,6 +124,15 @@
     [_session commitConfiguration];
     
     [_session startRunning];
+}
+
+/******************************************************************************/
+- (void) setupFFTAnalysis
+{
+    _FFTWidth = 256;
+    _FFTHeight = 256;
+    
+    _bitmap =  (Pixel_8 *)malloc(sizeof(Pixel_8) * _FFTWidth * _FFTHeight);
 }
 
 /******************************************************************************/
@@ -270,10 +280,16 @@
     
     // process bitmap
     
-    *(bitmap + (5 * 256) + 128) = 0xFF;
-    *(bitmap + (5 * 256) + 127) = 0x00;
+    Pixel_8 * pBit;
     
-    NSLog(@"[%d] [%d]", *bitmap, *(bitmap + 100));
+    pBit = (bitmap + (126 * 255) + 126);
+    *pBit = 0xFF; *++pBit = 0xFF; *++pBit = 0xFF;
+    pBit = (bitmap + (127 * 255) + 126);
+    *pBit = 0xFF;  ++pBit;        *++pBit = 0xFF;
+    pBit = (bitmap + (128 * 255) + 126);
+    *pBit = 0xFF; *++pBit = 0xFF; *++pBit = 0xFF;
+    
+    NSLog(@"[%d]", *(bitmap + (127 * 255) + 127));
 
     // end process bitmap
 
