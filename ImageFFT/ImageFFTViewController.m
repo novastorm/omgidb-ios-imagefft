@@ -148,97 +148,14 @@
 {
     // Get a CMSampleBuffer's Core Video image buffer for the media data
     CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
-    // Lock the base address of the pixel buffer
-    CVPixelBufferLockBaseAddress(imageBuffer, 0);
-    
-    // Get the number of bytes per row for the pixel buffer
-//    void *baseAddress = CVPixelBufferGetBaseAddress(imageBuffer);
-    
-    // Get the number of bytes per row for the pixel buffer
-//    size_t bytesPerRow = CVPixelBufferGetBytesPerRow(imageBuffer);
-    // Get the pixel buffer width and height
-//    size_t width = CVPixelBufferGetWidth(imageBuffer);
-//    size_t height = CVPixelBufferGetHeight(imageBuffer);
 
-    CIImage * aCIImage = [CIImage imageWithCVPixelBuffer:imageBuffer];
+    CIImage * image = [CIImage imageWithCVPixelBuffer:imageBuffer];
     
-    aCIImage = [self filterSquareImage:aCIImage];
-    aCIImage = [self filterGrayscaleImage:aCIImage];
-    aCIImage = [self filterFFTImage:aCIImage];
+    image = [self filterSquareImage:image];
+    image = [self filterGrayscaleImage:image];
+    image = [self filterFFTImage:image];
     
-    UIImage * aUIImage = [UIImage imageWithCIImage:aCIImage];
-    
-    return [aUIImage CIImage];
-
-    size_t width = 256;
-    size_t height = 256;
-    CGRect bounds = CGRectMake(0, 0, 256, 256);
-
-    Pixel_8 * bitmap =  (Pixel_8 *)malloc(width * height * sizeof(Pixel_8));
-
-    size_t bytesPerPixel = 1;
-    size_t bitsPerComponent = 8;
-    size_t bytesPerRow = bytesPerPixel * width;
-    
-    // Create a device-dependent RGB color space
-    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceGray();
-
-    CGBitmapInfo bitmapInfo = kCGImageAlphaNone;
-    
-    // Create a bitmap graphics context with the sample buffer data
-    CGContextRef context = CGBitmapContextCreate(bitmap, width, height, bitsPerComponent,
-                                                 bytesPerRow, colorSpace, bitmapInfo);
-    
-    if (context == NULL) {
-        NSLog(@"Could not create CGContext");
-        return nil;
-    }
-
-    CGContextDrawImage(context, bounds, [aUIImage CGImage]);
-    
-//    NSLog(@"[%02hhX] [%02hhX]", *bitmap, *(bitmap+1));
-    
-    // Create a Quartz image from the pixel data in the bitmap graphics context
-    CGImageRef quartzImage = CGBitmapContextCreateImage(context);
-    
-    // Unlock the pixel buffer
-    CVPixelBufferUnlockBaseAddress(imageBuffer,0);
-    
-    // Create an image object from the Quartz image
-    aUIImage = [UIImage imageWithCGImage:quartzImage];
-//    CGSize size = CGSizeMake(bounds.size.width, bounds.size.height);
-//    NSData * bitmapData = [NSData dataWithBytesNoCopy:bitmap length:bytesPerRow * height];
-//
-//    if (bitmapData == nil) {
-//        NSLog(@"Could not create bitmapData from bitmap");
-//        return nil;
-//    }
-//    
-//    NSLog(@"%lu", (unsigned long)bitmapData.length);
-
-////    aCIImage = [CIImage imageWithBitmapData:bitmapData bytesPerRow:bytesPerRow size:size format:format colorSpace:colorSpace];
-//    aUIImage = [UIImage imageWithData:bitmapData];
-//    
-//    if (aUIImage == nil) {
-//        NSLog(@"Could not create UIImage from bitmapData");
-//        return nil;
-//    }
-    
-    // Free up the context and color space
-    CGContextRelease(context);
-    CGColorSpaceRelease(colorSpace);
-    
-    // Release the Quartz image
-//    CGImageRelease(quartzImage);
-
-    
-//    image = [self filterSquareImage:image];
-//    image = [self filterGrayscaleImage:image];
-    aCIImage = [self filterFFTImage:[aUIImage CIImage]];
-    
-//    CVPixelBufferUnlockBaseAddress(imageBuffer,0);
-
-    return aCIImage;
+    return image;
 }
 
 /******************************************************************************
@@ -281,12 +198,13 @@
  ******************************************************************************/
 - (CIImage *) filterFFTImage:(CIImage *) inImage
 {
-    CIImage * outImage;
-
     size_t width = inImage.extent.size.width;
     size_t height = inImage.extent.size.height;
     
-    NSLog(@"FFT input W[%lu] H[%lu]", width, height);
+//    NSLog(@"FFT input W[%0.2f] H[%0.2f]"
+//        , inImage.extent.size.width
+//        , inImage.extent.size.height
+//        );
     
     float scale = 255.0f / width;
     
@@ -296,13 +214,77 @@
             , @"inputScale", [NSNumber numberWithFloat:scale]
             , nil];
     
-    outImage = [filter valueForKey:kCIOutputImageKey];
+    inImage = [filter valueForKey:kCIOutputImageKey];
 
-    NSLog(@"FFT output W[%f] H[%f]"
-    	, outImage.extent.size.width
-        , outImage.extent.size.height
-        );
+//    NSLog(@"FFT input W[%0.2f] H[%0.2f]"
+//        , inImage.extent.size.width
+//        , inImage.extent.size.height
+//        );
+    
+//    return [aUIImage CIImage];
+    
+    width = inImage.extent.size.width;
+    height = inImage.extent.size.height;
+    
+    CGRect bounds = CGRectMake(0, 0, width, height);
+    
+    Pixel_8 * bitmap =  (Pixel_8 *)malloc(sizeof(Pixel_8) * width * height);
 
+    size_t bytesPerPixel = 1;
+    size_t bitsPerComponent = 8;
+    size_t bytesPerRow = bytesPerPixel * width;
+
+    // Create a device-dependent RGB color space
+    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceGray();
+
+    CGBitmapInfo bitmapInfo = (CGBitmapInfo)kCGImageAlphaNone;
+
+    // Create a bitmap graphics context with the sample buffer data
+    CGContextRef context = CGBitmapContextCreate(bitmap, width, height, bitsPerComponent, bytesPerRow, colorSpace, bitmapInfo);
+
+    if (context == NULL) {
+        NSLog(@"Could not create CGContext");
+        return nil;
+    }
+    
+    CGImageRef aCGImage = [_CIContext createCGImage:inImage fromRect:inImage.extent];
+    
+    if (aCGImage == NULL) {
+        NSLog(@"cannot get a CGImage from inImage");
+        return nil;
+    }
+    
+    CGContextDrawImage(context, bounds, aCGImage);
+    
+    // process bitmap
+    
+    NSLog(@"[%d] [%d]", *bitmap, *(bitmap + 100));
+
+    // end process bitmap
+
+    // Create a Quartz image from the pixel data in the bitmap graphics context
+    CGImageRef quartzImage = CGBitmapContextCreateImage(context);
+
+    if (quartzImage == NULL) {
+        NSLog(@"Cannot create quartzImage from context");
+        return nil;
+    }
+    
+    // Free up the context and color space
+    CGContextRelease(context);
+    CGColorSpaceRelease(colorSpace);
+
+//    return [CIImage imageWithCGImage:quartzImage];
+    
+    CIImage * outImage = [CIImage imageWithCGImage:quartzImage];
+ 
+    if (outImage == NULL) {
+        NSLog(@"Cannot create outImage from quartzImage");
+        return nil;
+    }
+    
+    CGImageRelease(quartzImage);
+    
     return outImage;
 }
 
