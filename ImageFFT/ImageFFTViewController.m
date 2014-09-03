@@ -452,6 +452,8 @@
 //
 //    return;
     
+
+    // Rearrange output sectors
     UInt32 rowSrc, rowDst, rowMax, colSrc, colDst, colMax;
     
     rowMax = _FFTHalfHeight * _FFTWidth;
