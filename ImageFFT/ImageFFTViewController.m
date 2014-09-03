@@ -34,8 +34,13 @@
     FFTSetup _ImageAnalysis;
     DSPSplitComplex _DSPSplitComplex;
     Float32 _FFTNormalizationFactor;
+    Float32 _Scale;
     UInt32 _FFTLength;
     UInt32 _Log2N;
+    
+    size_t _FFTHalfWidth;
+    size_t _FFTHalfHeight;
+    Pixel_8 * _bitmapTemp;
 }
 
 @end
@@ -132,16 +137,24 @@
 {
     _FFTWidth = 256;
     _FFTHeight = 256;
+    _FFTHalfWidth = _FFTWidth / 2;
+    _FFTHalfHeight = _FFTHeight / 2;
     
     _bitmap =  (Pixel_8 *)malloc(sizeof(Pixel_8) * _FFTWidth * _FFTHeight);
+    _bitmapTemp = (Pixel_8 *)malloc(sizeof(Pixel_8) * _FFTHalfWidth);
     
     _Log2NWidth = log2(_FFTWidth);
     _Log2NHeight = log2(_FFTHeight);
+//    NSLog(@"[%lu][%lu]", _Log2NWidth, _Log2NHeight);
+    
     _Log2N = _Log2NWidth + _Log2NHeight;
     
     _ImageAnalysis = NULL;
-    _FFTNormalizationFactor = 1.0;
+//    _FFTNormalizationFactor = 1.0;
     _FFTLength = 1 << _Log2N;
+//    _Scale = 1.0 / _FFTLength;
+    _Scale = 1.0 / _FFTWidth; // 1.0 / sqrt(_FFTLength)
+//    NSLog(@"[%f]", _Scale);
     
     _DSPSplitComplex.realp = (Float32 *)calloc(_FFTLength, sizeof(Float32));
     _DSPSplitComplex.imagp = (Float32 *)calloc(_FFTLength, sizeof(Float32));
@@ -169,6 +182,7 @@
     drawRect.size.height = self.view.frame.size.height;
     
     [_CIContext drawImage:drawImage inRect:drawRect fromRect:sourceRect];
+    
     [(GLKView *)self.view display];
     
     [self cleanUpTextures];
@@ -182,12 +196,17 @@
     // Get a CMSampleBuffer's Core Video image buffer for the media data
     CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
 
+    CVPixelBufferLockBaseAddress(imageBuffer, 0);
+
     CIImage * image = [CIImage imageWithCVPixelBuffer:imageBuffer];
     
     image = [self filterSquareImage:image];
     image = [self filterGrayscaleImage:image];
     image = [self filterFFTImage:image];
+    image = [self filterReorderSectors:image];
     
+    CVPixelBufferUnlockBaseAddress(imageBuffer, 0);
+
     return image;
 }
 
@@ -240,7 +259,7 @@
 //        );
     
     // scale image to 256x256
-    float scale = 255.0f / width;
+    float scale = 256.0f / width;
     
     CIFilter * filter = [CIFilter filterWithName:@"CILanczosScaleTransform"
     	keysAndValues:
@@ -294,18 +313,24 @@
     
     // process bitmap
     
+    [self computeFFTForBitmap:bitmap];
+    
     Pixel_8 * pBit;
     
-    pBit = (bitmap + (126 * 255) + 126);
+    pBit = (bitmap + (126 * 256) + 126);
     *pBit = 0xFF; *++pBit = 0xFF; *++pBit = 0xFF;
-    pBit = (bitmap + (127 * 255) + 126);
+    pBit = (bitmap + (127 * 256) + 126);
     *pBit = 0xFF;  ++pBit;        *++pBit = 0xFF;
-    pBit = (bitmap + (128 * 255) + 126);
+    pBit = (bitmap + (128 * 256) + 126);
     *pBit = 0xFF; *++pBit = 0xFF; *++pBit = 0xFF;
     
-    NSLog(@"[%d]", *(bitmap + (127 * 255) + 127));
+    *(bitmap + (126 * 256)) = 0xFF;
+    *(bitmap + (127 * 256)) = 0xFF;
+    *(bitmap + (128 * 256)) = 0xFF;
     
-    [self computeFFTForBitmap:bitmap];
+    NSLog(@"Target [%d]", *(bitmap + (127 * 255) + 127));
+    
+//    [self computeFFTForBitmap:bitmap];
 
     // end process bitmap
 
@@ -324,7 +349,7 @@
 //    return [CIImage imageWithCGImage:quartzImage];
     
     CIImage * outImage = [CIImage imageWithCGImage:quartzImage];
- 
+    
     if (outImage == NULL) {
         NSLog(@"Cannot create outImage from quartzImage");
         return nil;
@@ -332,7 +357,55 @@
     
     CGImageRelease(quartzImage);
     
+    // filter quad
+    
     return outImage;
+}
+
+/******************************************************************************
+ reorder sectors
+ ******************************************************************************/
+- (CIImage *) filterReorderSectors:(CIImage *)inImage
+{
+    CIFilter * filter = [CIFilter filterWithName:@"CICrop"];
+    
+    [filter setValue:inImage forKey:@"inputImage"];
+    
+    CGRect sector1 = {0  , 128, 128, 128};
+    CGRect sector2 = {128, 128, 128, 128};
+    CGRect sector3 = {0  ,   0, 128, 128};
+    CGRect sector4 = {128,   0, 128, 128};
+    
+    CIImage * s4 = [CIFilter filterWithName:@"CICrop"
+        keysAndValues:
+            kCIInputImageKey, inImage
+            , @"inputRectangle", [CIVector vectorWithCGRect:sector1]
+            , nil].outputImage; // 1
+    
+    CIImage * s3 = [CIFilter filterWithName:@"CICrop"
+        keysAndValues:
+            kCIInputImageKey, inImage
+            , @"inputRectangle", [CIVector vectorWithCGRect:sector2]
+            , nil].outputImage; // 2
+    
+    CIImage * s2 = [CIFilter filterWithName:@"CICrop"
+        keysAndValues:
+            kCIInputImageKey, inImage
+            , @"inputRectangle", [CIVector vectorWithCGRect:sector3]
+            , nil].outputImage; // 3
+    
+    CIImage * s1 = [CIFilter filterWithName:@"CICrop"
+        keysAndValues:
+            kCIInputImageKey, inImage
+            , @"inputRectangle", [CIVector vectorWithCGRect:sector4]
+            , nil].outputImage; // 4
+    
+    [_CIContext drawImage:s1 inRect:sector1 fromRect:s1.extent];
+    [_CIContext drawImage:s2 inRect:sector2 fromRect:s2.extent];
+    [_CIContext drawImage:s3 inRect:sector3 fromRect:s3.extent];
+    [_CIContext drawImage:s4 inRect:sector4 fromRect:s4.extent];
+    
+    return [filter valueForKey:kCIOutputImageKey];
 }
 
 /******************************************************************************/
@@ -354,13 +427,50 @@
 /******************************************************************************/
 - (void) computeFFTForBitmap:(Pixel_8 *)bitmap
 {
+
     for (UInt32 i = 0; i < _FFTLength; ++i) {
-        _DSPSplitComplex.realp[i] = bitmap[i] / 255.0;
+        _DSPSplitComplex.realp[i] = (Float32)bitmap[i] / 255.0f;
         _DSPSplitComplex.imagp[i] = 0.0;
     }
     
+    size_t col = _Log2NWidth;
+    size_t row = col;
+    
+    // FFT the data
+    vDSP_fft2d_zip(_ImageAnalysis, &_DSPSplitComplex, 1, 0, col, row, kFFTDirection_Forward);
+    
+//    NSLog(@"[%f]", _DSPSplitComplex.realp[0]);
+
+    // get the mangitude
+    vDSP_zvabs(&_DSPSplitComplex, 1, _DSPSplitComplex.realp, 1, _FFTLength);
+    
+    // scale the data to original scale
+    vDSP_vsmul(_DSPSplitComplex.realp, 1, &_Scale, _DSPSplitComplex.realp, 1, _FFTLength);
+//    vDSP_vsmul(_DSPSplitComplex.imagp, 1, &_Scale, _DSPSplitComplex.imagp, 1, _FFTLength);
+
+    UInt32 i;
+
     for (UInt32 i = 0; i < _FFTLength; ++i) {
         bitmap[i] = (int)(_DSPSplitComplex.realp[i] * 255.0);
+    }
+    
+    return;
+    
+    UInt32 rowSrc, rowDst, rowMax, colSrc, colDst, colMax;
+    
+    rowMax = _FFTHalfHeight * _FFTWidth;
+//    colMax = _FFTHalfWidth;
+    
+//    NSLog(@"rowMax[%lu]", rowMax);
+
+    for (rowDst = 0, rowSrc = 128 * _FFTWidth; rowDst < rowMax; rowDst += _FFTWidth, rowSrc += _FFTWidth ) {
+//        NSLog(@"[%lu]", rowDst);
+        colMax = rowDst + _FFTHalfWidth - 1;
+        for (colDst = rowDst, colSrc = rowSrc; colDst < colMax; colDst++, colSrc++) {
+//            NSLog(@"colDst[%lu] colSrc[%lu]", colDst, colSrc);
+            bitmap[colDst] = (int)(_DSPSplitComplex.realp[colSrc] * 255.0);
+        }
+//        NSLog(@"colDst[%lu] colSrc[%lu]", colDst, colSrc);
     }
 }
 
