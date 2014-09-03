@@ -203,7 +203,7 @@
     image = [self filterSquareImage:image];
     image = [self filterGrayscaleImage:image];
     image = [self filterFFTImage:image];
-    image = [self filterReorderSectors:image];
+//    image = [self filterReorderSectors:image];
     
     CVPixelBufferUnlockBaseAddress(imageBuffer, 0);
 
@@ -315,20 +315,18 @@
     
     [self computeFFTForBitmap:bitmap];
     
-    Pixel_8 * pBit;
-    
-    pBit = (bitmap + (126 * 256) + 126);
-    *pBit = 0xFF; *++pBit = 0xFF; *++pBit = 0xFF;
-    pBit = (bitmap + (127 * 256) + 126);
-    *pBit = 0xFF;  ++pBit;        *++pBit = 0xFF;
-    pBit = (bitmap + (128 * 256) + 126);
-    *pBit = 0xFF; *++pBit = 0xFF; *++pBit = 0xFF;
-    
-    *(bitmap + (126 * 256)) = 0xFF;
-    *(bitmap + (127 * 256)) = 0xFF;
-    *(bitmap + (128 * 256)) = 0xFF;
-    
-    NSLog(@"Target [%d]", *(bitmap + (127 * 255) + 127));
+//    Pixel_8 * pBit;
+//    
+//    pBit = (bitmap + (126 * 256) + 126);
+//    *pBit = 0xFF; *++pBit = 0xFF; *++pBit = 0xFF;
+//    pBit = (bitmap + (127 * 256) + 126);
+//    *pBit = 0xFF;  ++pBit;        *++pBit = 0xFF;
+//    pBit = (bitmap + (128 * 256) + 126);
+//    *pBit = 0xFF; *++pBit = 0xFF; *++pBit = 0xFF;
+//    
+//    *(bitmap + (124 * 256) + 124) = 0xff;
+//    
+//    NSLog(@"Target [%d]", *(bitmap + (127 * 255) + 127));
     
 //    [self computeFFTForBitmap:bitmap];
 
@@ -448,29 +446,33 @@
     vDSP_vsmul(_DSPSplitComplex.realp, 1, &_Scale, _DSPSplitComplex.realp, 1, _FFTLength);
 //    vDSP_vsmul(_DSPSplitComplex.imagp, 1, &_Scale, _DSPSplitComplex.imagp, 1, _FFTLength);
 
-    UInt32 i;
-
-    for (UInt32 i = 0; i < _FFTLength; ++i) {
-        bitmap[i] = (int)(_DSPSplitComplex.realp[i] * 255.0);
-    }
-    
-    return;
+//    for (UInt32 i = 0; i < _FFTLength; ++i) {
+//        bitmap[i] = (int)(_DSPSplitComplex.realp[i] * 255.0);
+//    }
+//
+//    return;
     
     UInt32 rowSrc, rowDst, rowMax, colSrc, colDst, colMax;
     
     rowMax = _FFTHalfHeight * _FFTWidth;
-//    colMax = _FFTHalfWidth;
-    
-//    NSLog(@"rowMax[%lu]", rowMax);
 
-    for (rowDst = 0, rowSrc = 128 * _FFTWidth; rowDst < rowMax; rowDst += _FFTWidth, rowSrc += _FFTWidth ) {
-//        NSLog(@"[%lu]", rowDst);
-        colMax = rowDst + _FFTHalfWidth - 1;
+    // swap SE and NW Sectors
+    for (rowDst = 0, rowSrc = 128 * _FFTWidth + 128; rowDst < rowMax; rowDst += _FFTWidth, rowSrc += _FFTWidth ) {
+        colMax = rowDst + _FFTHalfWidth;
         for (colDst = rowDst, colSrc = rowSrc; colDst < colMax; colDst++, colSrc++) {
-//            NSLog(@"colDst[%lu] colSrc[%lu]", colDst, colSrc);
             bitmap[colDst] = (int)(_DSPSplitComplex.realp[colSrc] * 255.0);
+            bitmap[colSrc] = (int)(_DSPSplitComplex.realp[colDst] * 255.0);
         }
-//        NSLog(@"colDst[%lu] colSrc[%lu]", colDst, colSrc);
+    }
+
+    rowMax = _FFTHeight * _FFTWidth;
+    // swap NE and SW Sectors
+    for (rowDst = 128 * _FFTWidth, rowSrc = 0 * _FFTWidth + 128; rowDst < rowMax; rowDst += _FFTWidth, rowSrc += _FFTWidth ) {
+        colMax = rowDst + _FFTHalfWidth;
+        for (colDst = rowDst, colSrc = rowSrc; colDst < colMax; colDst++, colSrc++) {
+            bitmap[colDst] = (int)(_DSPSplitComplex.realp[colSrc] * 255.0);
+            bitmap[colSrc] = (int)(_DSPSplitComplex.realp[colDst] * 255.0);
+        }
     }
 }
 
