@@ -14,7 +14,8 @@
 @interface ImageFFTViewController () {
     CIContext * _CIContext;
     EAGLContext* _EAGLContext;
-    CGRect _videoPreviewViewBounds;
+    CGRect _FFTPreviewViewBounds;
+    CGRect _OriginPreviewViewBounds;
     
     CVOpenGLESTextureRef _lumaTexture;
     CVOpenGLESTextureRef _chromaTexture;
@@ -68,12 +69,18 @@
     CGFloat width = view.frame.size.width * view.contentScaleFactor;
     CGFloat height = view.frame.size.height * view.contentScaleFactor;
     
-    _videoPreviewViewBounds = CGRectZero;
-    _videoPreviewViewBounds.origin.x = 0;
-    _videoPreviewViewBounds.origin.y = height - width;
-    _videoPreviewViewBounds.size.width = width;
-    _videoPreviewViewBounds.size.height = width;
+    _FFTPreviewViewBounds = CGRectZero;
+    _FFTPreviewViewBounds.origin.x = 0;
+    _FFTPreviewViewBounds.origin.y = height - width;
+    _FFTPreviewViewBounds.size.width = width;
+    _FFTPreviewViewBounds.size.height = width;
     
+    _OriginPreviewViewBounds = CGRectZero;
+    _OriginPreviewViewBounds.origin.x = 0.5f * view.frame.size.width;
+    _OriginPreviewViewBounds.origin.y = 0.25f * view.frame.size.width;
+    _OriginPreviewViewBounds.size.width = view.frame.size.width;
+    _OriginPreviewViewBounds.size.height = view.frame.size.width;
+
     [self setupFFTAnalysis];
     [self setupGL];
     [self setupAVCapture];
@@ -172,11 +179,19 @@
 
     [connection setVideoOrientation:AVCaptureVideoOrientationPortrait];
 
-    CIImage * drawImage = [self imageFromSampleBuffer:sampleBuffer];
+    CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
+    CIImage * image = [CIImage imageWithCVPixelBuffer:imageBuffer];
+
+    image = [self filterSquareImage:image];
+    image = [self filterGrayscaleImage:image];
+//    CIImage * drawImage = [self imageFromSampleBuffer:sampleBuffer];
+
+    CIImage * drawImage = [self filterFFTImage:image];
 
     CGRect sourceRect = drawImage.extent;
     
-    [_CIContext drawImage:drawImage inRect:_videoPreviewViewBounds fromRect:sourceRect];
+    [_CIContext drawImage:image inRect:_OriginPreviewViewBounds fromRect:sourceRect];
+    [_CIContext drawImage:drawImage inRect:_FFTPreviewViewBounds fromRect:sourceRect];
     
     [(GLKView *)self.view display];
     
