@@ -35,7 +35,8 @@
     FFTSetup _ImageAnalysis;
     DSPSplitComplex _DSPSplitComplex;
 //    Float32 _FFTNormalizationFactor;
-    Float32 _Scale;
+    Float32 _ScaleA;
+    Float32 _ScaleB;
     UInt32 _FFTLength;
     UInt32 _Log2N;
     
@@ -46,7 +47,11 @@
 @end
 
 @implementation ImageFFTViewController
-            
+
+//const Float32 kAdjust0DB = 1.5849e-13;
+const Float32 kAdjust0DB = 1.5849e-13;
+const Float32 one = 1;
+
 - (void)viewDidLoad {
     [super viewDidLoad];
 
@@ -159,7 +164,8 @@
     
     _ImageAnalysis = NULL;
     _FFTLength = 1 << _Log2N;
-    _Scale = 1.0 / _FFTWidth; // 1.0 / sqrt(_FFTLength)
+    _ScaleA = 0.1f;
+    _ScaleB = 1.0 / sqrt(_FFTLength);
     
     _DSPSplitComplex.realp = (Float32 *)calloc(_FFTLength, sizeof(Float32));
     _DSPSplitComplex.imagp = (Float32 *)calloc(_FFTLength, sizeof(Float32));
@@ -179,12 +185,7 @@
 
     [connection setVideoOrientation:AVCaptureVideoOrientationPortrait];
 
-    CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
-    CIImage * image = [CIImage imageWithCVPixelBuffer:imageBuffer];
-
-    image = [self filterSquareImage:image];
-    image = [self filterGrayscaleImage:image];
-//    CIImage * drawImage = [self imageFromSampleBuffer:sampleBuffer];
+    CIImage * image = [self imageFromSampleBuffer:sampleBuffer];
 
     CIImage * drawImage = [self filterFFTImage:image];
 
@@ -206,15 +207,10 @@
     // Get a CMSampleBuffer's Core Video image buffer for the media data
     CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
 
-    CVPixelBufferLockBaseAddress(imageBuffer, 0);
-
     CIImage * image = [CIImage imageWithCVPixelBuffer:imageBuffer];
     
     image = [self filterSquareImage:image];
     image = [self filterGrayscaleImage:image];
-    image = [self filterFFTImage:image];
-    
-    CVPixelBufferUnlockBaseAddress(imageBuffer, 0);
 
     return image;
 }
@@ -247,11 +243,11 @@
  ******************************************************************************/
 - (CIImage *) filterGrayscaleImage:(CIImage *)inImage
 {
-    CIFilter * filter = [CIFilter filterWithName:@"CIMaximumComponent"];
-    
-    [filter setValue:inImage forKey:@"inputImage"];
-    
-    return [filter valueForKey:kCIOutputImageKey];
+    return [CIFilter filterWithName:@"CIMaximumComponent"
+        keysAndValues:
+            kCIInputImageKey, inImage
+            , nil
+        ].outputImage;
 }
 
 /******************************************************************************
@@ -265,13 +261,12 @@
     // scale image to 256x256
     float scale = 256.0f / width;
     
-    CIFilter * filter = [CIFilter filterWithName:@"CILanczosScaleTransform"
+    inImage = [CIFilter filterWithName:@"CILanczosScaleTransform"
     	keysAndValues:
             kCIInputImageKey, inImage
             , @"inputScale", [NSNumber numberWithFloat:scale]
-            , nil];
-    
-    inImage = [filter valueForKey:kCIOutputImageKey];
+            , nil
+        ].outputImage;
     
     width = inImage.extent.size.width;
     height = inImage.extent.size.height;
@@ -355,25 +350,46 @@
 /******************************************************************************/
 - (void) computeFFTForBitmap:(Pixel_8 *)bitmap
 {
-
     for (UInt32 i = 0; i < _FFTLength; ++i) {
         _DSPSplitComplex.realp[i] = (Float32)bitmap[i] / 255.0f;
         _DSPSplitComplex.imagp[i] = 0.0;
     }
-    
+ 
+//    size_t testPixel = 0;
+//    NSLog(@"origin[%f]", _DSPSplitComplex.realp[testPixel]);
+
     size_t col = _Log2NWidth;
     size_t row = col;
     
     // FFT the data
     vDSP_fft2d_zip(_ImageAnalysis, &_DSPSplitComplex, 1, 0, col, row, kFFTDirection_Forward);
     
-    // get the mangitude
-    vDSP_zvabs(&_DSPSplitComplex, 1, _DSPSplitComplex.realp, 1, _FFTLength);
-    
-    // scale the data to original scale
-    vDSP_vsmul(_DSPSplitComplex.realp, 1, &_Scale, _DSPSplitComplex.realp, 1, _FFTLength);
-//    vDSP_vsmul(_DSPSplitComplex.imagp, 1, &_Scale, _DSPSplitComplex.imagp, 1, _FFTLength); // no need to scale. not used in bitmap.
+    // get the absolute value
+//    vDSP_zvabs(&_DSPSplitComplex, 1, _DSPSplitComplex.realp, 1, _FFTLength);
+//    NSLog(@"abs[%f]", _DSPSplitComplex.realp[testPixel]);
+    vDSP_zvmags(&_DSPSplitComplex, 1, _DSPSplitComplex.realp, 1, _FFTLength);
+//    NSLog(@"mags[%f]", _DSPSplitComplex.realp[testPixel]);
 
+//    _ScaleB = 0.00001;
+    // scale the data to original scale
+//    _ScaleB = 1.0 / (_FFTLength);
+    vDSP_vsmul(_DSPSplitComplex.realp, 1, &_ScaleB, _DSPSplitComplex.realp, 1, _FFTLength);
+  
+    // log scale
+    float max, min;
+//    vDSP_maxv(_DSPSplitComplex.realp, 1, &max, _FFTLength);
+//    vDSP_minv(_DSPSplitComplex.realp, 1, &min, _FFTLength);
+//    NSLog(@"min[%0.10f] max[%0.10f]", min, max);
+    vDSP_vdbcon(_DSPSplitComplex.realp, 1, &one, _DSPSplitComplex.realp, 1, _FFTLength, 1);
+
+//    NSLog(@"[%f] => f[%f] d[%d]", _DSPSplitComplex.realp[testPixel], _DSPSplitComplex.realp[testPixel], (int)(_DSPSplitComplex.realp[testPixel]));
+
+    min = 1.5f;
+    max = 255.0f;
+//
+    vDSP_vclip(_DSPSplitComplex.realp, 1, &min, &max, _DSPSplitComplex.realp, 1, _FFTLength);
+
+//    NSLog(@"[%f] => f[%f] d[%d]", _DSPSplitComplex.realp[testPixel], _DSPSplitComplex.realp[testPixel], (int)(_DSPSplitComplex.realp[testPixel]));
     // Rearrange output sectors
     UInt32 rowSrc, rowDst, rowMax, colSrc, colDst, colMax;
     
@@ -383,8 +399,8 @@
     for (rowDst = 0, rowSrc = 128 * _FFTWidth + 128; rowDst < rowMax; rowDst += _FFTWidth, rowSrc += _FFTWidth ) {
         colMax = rowDst + _FFTHalfWidth;
         for (colDst = rowDst, colSrc = rowSrc; colDst < colMax; colDst++, colSrc++) {
-            bitmap[colDst] = (int)(_DSPSplitComplex.realp[colSrc] * 255.0);
-            bitmap[colSrc] = (int)(_DSPSplitComplex.realp[colDst] * 255.0);
+            bitmap[colDst] = (int)(_DSPSplitComplex.realp[colSrc]);
+            bitmap[colSrc] = (int)(_DSPSplitComplex.realp[colDst]);
         }
     }
 
@@ -393,8 +409,8 @@
     for (rowDst = 128 * _FFTWidth, rowSrc = 0 * _FFTWidth + 128; rowDst < rowMax; rowDst += _FFTWidth, rowSrc += _FFTWidth ) {
         colMax = rowDst + _FFTHalfWidth;
         for (colDst = rowDst, colSrc = rowSrc; colDst < colMax; colDst++, colSrc++) {
-            bitmap[colDst] = (int)(_DSPSplitComplex.realp[colSrc] * 255.0);
-            bitmap[colSrc] = (int)(_DSPSplitComplex.realp[colDst] * 255.0);
+            bitmap[colDst] = (int)(_DSPSplitComplex.realp[colSrc]);
+            bitmap[colSrc] = (int)(_DSPSplitComplex.realp[colDst]);
         }
     }
 }
