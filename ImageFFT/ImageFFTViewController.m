@@ -14,8 +14,8 @@
 @interface ImageFFTViewController () {
     CIContext * _CIContext;
     EAGLContext* _EAGLContext;
-    CGRect _FFTPreviewViewBounds;
-    CGRect _OriginPreviewViewBounds;
+    CGRect _PrimaryViewerBounds;
+    CGRect _SecondaryViewerBounds;
     
     CVOpenGLESTextureRef _lumaTexture;
     CVOpenGLESTextureRef _chromaTexture;
@@ -48,10 +48,10 @@
 
 @implementation ImageFFTViewController
 
-//const Float32 kAdjust0DB = 1.5849e-13;
 const Float32 kAdjust0DB = 1.5849e-13;
 const Float32 one = 1;
 
+/******************************************************************************/
 - (void)viewDidLoad {
     [super viewDidLoad];
 
@@ -74,17 +74,17 @@ const Float32 one = 1;
     CGFloat width = view.frame.size.width * view.contentScaleFactor;
     CGFloat height = view.frame.size.height * view.contentScaleFactor;
     
-    _FFTPreviewViewBounds = CGRectZero;
-    _FFTPreviewViewBounds.origin.x = 0;
-    _FFTPreviewViewBounds.origin.y = height - width;
-    _FFTPreviewViewBounds.size.width = width;
-    _FFTPreviewViewBounds.size.height = width;
+    _PrimaryViewerBounds = CGRectZero;
+    _PrimaryViewerBounds.origin.x = 0;
+    _PrimaryViewerBounds.origin.y = height - width;
+    _PrimaryViewerBounds.size.width = width;
+    _PrimaryViewerBounds.size.height = width;
     
-    _OriginPreviewViewBounds = CGRectZero;
-    _OriginPreviewViewBounds.origin.x = 0.5f * view.frame.size.width;
-    _OriginPreviewViewBounds.origin.y = 0.25f * view.frame.size.width;
-    _OriginPreviewViewBounds.size.width = view.frame.size.width;
-    _OriginPreviewViewBounds.size.height = view.frame.size.width;
+    _SecondaryViewerBounds = CGRectZero;
+    _SecondaryViewerBounds.origin.x = 0.5f * view.frame.size.width;
+    _SecondaryViewerBounds.origin.y = 0.25f * view.frame.size.width;
+    _SecondaryViewerBounds.size.width = view.frame.size.width;
+    _SecondaryViewerBounds.size.height = view.frame.size.width;
 
     [self setupFFTAnalysis];
     [self setupGL];
@@ -191,8 +191,8 @@ const Float32 one = 1;
 
     CGRect sourceRect = drawImage.extent;
     
-    [_CIContext drawImage:image inRect:_OriginPreviewViewBounds fromRect:sourceRect];
-    [_CIContext drawImage:drawImage inRect:_FFTPreviewViewBounds fromRect:sourceRect];
+    [_CIContext drawImage:image inRect:_SecondaryViewerBounds fromRect:sourceRect];
+    [_CIContext drawImage:drawImage inRect:_PrimaryViewerBounds fromRect:sourceRect];
     
     [(GLKView *)self.view display];
     
@@ -211,6 +211,7 @@ const Float32 one = 1;
     
     image = [self filterSquareImage:image];
     image = [self filterGrayscaleImage:image];
+    image = [self filterScaleImage:image fromSize:image.extent.size.width toSize:256];
 
     return image;
 }
@@ -223,6 +224,10 @@ const Float32 one = 1;
 
     // crop to square
     CGRect cropRect = inImage.extent;
+    
+    if (cropRect.size.width == cropRect.size.height) {
+        return inImage;
+    }
 
     if (cropRect.size.width < cropRect.size.height) {
         cropRect.size.height = cropRect.size.width;
@@ -231,11 +236,10 @@ const Float32 one = 1;
         cropRect.size.width = cropRect.size.height;
     }
     
-    CIFilter * filter = [CIFilter filterWithName:@"CICrop"];
-    [filter setValue:inImage forKey:@"inputImage"];
-    [filter setValue:[CIVector vectorWithCGRect:cropRect] forKey:@"inputRectangle"];
-
-    return [filter valueForKey:kCIOutputImageKey];
+    return [CIFilter filterWithName:@"CICrop" keysAndValues:
+        kCIInputImageKey, inImage
+        , @"inputRectangle", [CIVector vectorWithCGRect:cropRect]
+        , nil].outputImage;
 }
 
 /******************************************************************************
@@ -251,25 +255,27 @@ const Float32 one = 1;
 }
 
 /******************************************************************************
- Create a FFT CIImage from input CIImage
+ Scale input CIImage
+ ******************************************************************************/
+- (CIImage *) filterScaleImage:(CIImage *)inImage fromSize:(Float32)fromSize toSize:(Float32)toSize
+{
+    Float32 scale = toSize / fromSize;
+    
+    return [CIFilter filterWithName:@"CILanczosScaleTransform"
+                         keysAndValues:
+               kCIInputImageKey, inImage
+               , @"inputScale", [NSNumber numberWithFloat:scale]
+               , nil
+               ].outputImage;
+}
+
+/******************************************************************************
+ Create a 2DFFT CIImage from input CIImage
  ******************************************************************************/
 - (CIImage *) filterFFTImage:(CIImage *) inImage
 {
     size_t width = inImage.extent.size.width;
     size_t height = inImage.extent.size.height;
-    
-    // scale image to 256x256
-    float scale = 256.0f / width;
-    
-    inImage = [CIFilter filterWithName:@"CILanczosScaleTransform"
-    	keysAndValues:
-            kCIInputImageKey, inImage
-            , @"inputScale", [NSNumber numberWithFloat:scale]
-            , nil
-        ].outputImage;
-    
-    width = inImage.extent.size.width;
-    height = inImage.extent.size.height;
     
     CGRect bounds = CGRectMake(0, 0, width, height);
     
@@ -305,28 +311,25 @@ const Float32 one = 1;
     
     [self computeFFTForBitmap:bitmap];
 
-    // Create a Quartz image from the pixel data in the bitmap graphics context
-    CGImageRef quartzImage = CGBitmapContextCreateImage(context);
+    // Create a CGImage from the pixel data in the bitmap graphics context
+    aCGImage = CGBitmapContextCreateImage(context);
 
-    if (quartzImage == NULL) {
+    if (aCGImage == NULL) {
         NSLog(@"Cannot create quartzImage from context");
         return nil;
     }
     
-    // Free up the context and color space
-    CGContextRelease(context);
-    CGColorSpaceRelease(colorSpace);
-
-    CIImage * outImage = [CIImage imageWithCGImage:quartzImage];
+    CIImage * outImage = [CIImage imageWithCGImage:aCGImage];
     
     if (outImage == NULL) {
         NSLog(@"Cannot create outImage from quartzImage");
         return nil;
     }
     
-    CGImageRelease(quartzImage);
-    
-    // filter quad
+    // Free up the context, color space,
+    CGContextRelease(context);
+    CGColorSpaceRelease(colorSpace);
+    CGImageRelease(aCGImage);
     
     return outImage;
 }
@@ -355,9 +358,6 @@ const Float32 one = 1;
         _DSPSplitComplex.imagp[i] = 0.0;
     }
  
-//    size_t testPixel = 0;
-//    NSLog(@"origin[%f]", _DSPSplitComplex.realp[testPixel]);
-
     size_t col = _Log2NWidth;
     size_t row = col;
     
@@ -366,30 +366,19 @@ const Float32 one = 1;
     
     // get the absolute value
 //    vDSP_zvabs(&_DSPSplitComplex, 1, _DSPSplitComplex.realp, 1, _FFTLength);
-//    NSLog(@"abs[%f]", _DSPSplitComplex.realp[testPixel]);
+    // get the magnitude
     vDSP_zvmags(&_DSPSplitComplex, 1, _DSPSplitComplex.realp, 1, _FFTLength);
-//    NSLog(@"mags[%f]", _DSPSplitComplex.realp[testPixel]);
 
-//    _ScaleB = 0.00001;
-    // scale the data to original scale
-//    _ScaleB = 1.0 / (_FFTLength);
     vDSP_vsmul(_DSPSplitComplex.realp, 1, &_ScaleB, _DSPSplitComplex.realp, 1, _FFTLength);
   
     // log scale
-    float max, min;
-//    vDSP_maxv(_DSPSplitComplex.realp, 1, &max, _FFTLength);
-//    vDSP_minv(_DSPSplitComplex.realp, 1, &min, _FFTLength);
-//    NSLog(@"min[%0.10f] max[%0.10f]", min, max);
     vDSP_vdbcon(_DSPSplitComplex.realp, 1, &one, _DSPSplitComplex.realp, 1, _FFTLength, 1);
 
-//    NSLog(@"[%f] => f[%f] d[%d]", _DSPSplitComplex.realp[testPixel], _DSPSplitComplex.realp[testPixel], (int)(_DSPSplitComplex.realp[testPixel]));
-
-    min = 1.5f;
-    max = 255.0f;
+    float min = 1.0f;
+    float max = 255.0f;
 //
     vDSP_vclip(_DSPSplitComplex.realp, 1, &min, &max, _DSPSplitComplex.realp, 1, _FFTLength);
 
-//    NSLog(@"[%f] => f[%f] d[%d]", _DSPSplitComplex.realp[testPixel], _DSPSplitComplex.realp[testPixel], (int)(_DSPSplitComplex.realp[testPixel]));
     // Rearrange output sectors
     UInt32 rowSrc, rowDst, rowMax, colSrc, colDst, colMax;
     
