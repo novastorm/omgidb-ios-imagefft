@@ -10,10 +10,13 @@
 
 @interface FFT2D : NSObject
 
-+ (id) initWithImage:(CIImage *)image;
++ (FFT2D *) FFT2DWithImage:(CIImage *)image;
 
 - (id) init;
-- (void) setupForImage:(CIImage *)image;
+- (id) initWithImage:(CIImage *)image;
+
+- (void) reinitWithImage:(CIImage *)image;
+
 - (CIImage *) filterFFTForImage:(CIImage *)inImage;
 
 @end

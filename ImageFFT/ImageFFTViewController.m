@@ -48,8 +48,8 @@
 
 @implementation ImageFFTViewController
 
-const Float32 kAdjust0DB = 1.5849e-13;
-const Float32 one = 1;
+//const Float32 kAdjust0DB = 1.5849e-13;
+//const Float32 one = 1;
 
 /******************************************************************************/
 - (void)viewDidLoad {

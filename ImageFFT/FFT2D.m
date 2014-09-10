@@ -32,16 +32,18 @@
     UInt32 _Log2NWidth;
     UInt32 _Log2NHeight;
 
-    FFTSetup _ImageAnalysis;
     DSPSplitComplex _DSPSplitComplex;
+
+    FFTSetup _ImageAnalysis;
+
     Float32 _FFTNormalizationFactor;
-    Float32 _ScaleA;
-    Float32 _ScaleB;
+    Float32 _FFTScale;
+//    Float32 _ScaleB;
     UInt32 _FFTLength;
     UInt32 _Log2N;
 
-    UInt32 _FFTHalfWidth;
-    UInt32 _FFTHalfHeight;
+    UInt32 _halfWidth;
+    UInt32 _halfHeight;
 }
 
 @end
@@ -50,10 +52,9 @@
 
 const Float32 kAdjust0DB = 1.5849e-13;
 const Float32 one = 1;
+const UInt32 originPixel = 0;
 
-/******************************************************************************
- init
- ******************************************************************************/
+/******************************************************************************/
 - (id) init
 {
     self = [super init];
@@ -67,31 +68,100 @@ const Float32 one = 1;
     return self;
 }
 
-/******************************************************************************
- Setup processor for image
- ******************************************************************************/
-- (void) setupForImage:(CIImage *)image
+/******************************************************************************/
++ (FFT2D *) FFT2DWithBounds:(CGRect)bounds
 {
-    _bounds = image.extent;
+    return [[FFT2D alloc] initWithBounds:bounds];
+}
+
+/******************************************************************************/
++ (FFT2D *) FFT2DWithImage:(CIImage *)image
+{
+    return [[FFT2D alloc] initWithImage:image];
+}
+
+/******************************************************************************/
+- (id) initWithBounds:(CGRect)bounds
+{
+    self = [self init];
+    [self reinitWithBounds:bounds];
+    
+    return self;
+}
+
+/******************************************************************************/
+- (id) initWithImage:(CIImage *)image
+{
+    self = [self init];
+    [self reinitWithImage:image];
+    
+    return self;
+}
+
+/******************************************************************************
+ Setup processor for bounds
+ ******************************************************************************/
+- (void) reinitWithBounds:(CGRect)bounds
+{
+    if (CGRectEqualToRect(_bounds, bounds)) {
+        return;
+    }
+
+    _bounds = bounds;
     _width = _bounds.size.width;
     _height = _bounds.size.height;
     
-    if (_bitmap) {
-        free(_bitmap);
-    }
-    
+    if (_bitmap) { free(_bitmap); }
     _bitmap =  (Pixel_8 *)malloc(sizeof(Pixel_8) * _width * _height);
     
+    _halfWidth = _width / 2;
+    _halfHeight = _height / 2;
+    
+    _Log2NWidth = log2(_width);
+    _Log2NHeight = log2(_height);
+    
+    _Log2N = _Log2NWidth + _Log2NHeight;
+    
+    _ImageAnalysis = vDSP_create_fftsetup(_Log2N, kFFTRadix2);
+    
+    _FFTLength = 1 << _Log2N;
+    _FFTScale = 1 / sqrt(_FFTLength);
+    
+    if (_DSPSplitComplex.realp) { free(_DSPSplitComplex.realp); }
+    if (_DSPSplitComplex.imagp) { free(_DSPSplitComplex.imagp); }
+    
+    _DSPSplitComplex.realp = (Float32 *)calloc(_FFTLength, sizeof(Float32));
+    _DSPSplitComplex.imagp = (Float32 *)calloc(_FFTLength, sizeof(Float32));
+    
     _bytesPerRow = _bytesPerPixel * _width;
-
-    if (_CGBitmapContext) {
-        CGContextRelease(_CGBitmapContext);
-    }
+    
+    if (_CGBitmapContext) { CGContextRelease(_CGBitmapContext); }
     _CGBitmapContext = CGBitmapContextCreate(_bitmap, _width, _height, _bitsPerComponent, _bytesPerRow, _colorSpace, _bitmapInfo);
     
     if (! _CGBitmapContext) {
         NSLog(@"Could not create CGContext");
     }
+}
+
+/******************************************************************************
+ Setup processor for image
+ ******************************************************************************/
+- (void) reinitWithImage:(CIImage *)image
+{
+    [self reinitWithBounds:image.extent];
+}
+
+/******************************************************************************
+ dealloc
+ ******************************************************************************/
+- (void) dealloc
+{
+    CGContextRelease(_CGBitmapContext);
+    CGColorSpaceRelease(_colorSpace);
+    
+    free(_bitmap);
+    free(_DSPSplitComplex.realp);
+    free(_DSPSplitComplex.imagp);
 }
 
 /******************************************************************************
@@ -148,11 +218,11 @@ const Float32 one = 1;
     vDSP_fft2d_zip(_ImageAnalysis, &_DSPSplitComplex, 1, 0, col, row, kFFTDirection_Forward);
     
     // get the absolute value
-    //    vDSP_zvabs(&_DSPSplitComplex, 1, _DSPSplitComplex.realp, 1, _FFTLength);
+    // vDSP_zvabs(&_DSPSplitComplex, 1, _DSPSplitComplex.realp, 1, _FFTLength);
     // get the magnitude
     vDSP_zvmags(&_DSPSplitComplex, 1, _DSPSplitComplex.realp, 1, _FFTLength);
     
-    vDSP_vsmul(_DSPSplitComplex.realp, 1, &_ScaleB, _DSPSplitComplex.realp, 1, _FFTLength);
+    vDSP_vsmul(_DSPSplitComplex.realp, 1, &_FFTScale, _DSPSplitComplex.realp, 1, _FFTLength);
     
     // log scale
     vDSP_vdbcon(_DSPSplitComplex.realp, 1, &one, _DSPSplitComplex.realp, 1, _FFTLength, 1);
@@ -165,11 +235,10 @@ const Float32 one = 1;
     // Rearrange output sectors
     UInt32 rowSrc, rowDst, rowMax, colSrc, colDst, colMax;
     
-    
     // swap SE and NW Sectors
-    rowMax = _FFTHalfHeight * _FFTWidth;
-    for (rowDst = 0, rowSrc = 128 * _FFTWidth + 128; rowDst < rowMax; rowDst += _FFTWidth, rowSrc += _FFTWidth ) {
-        colMax = rowDst + _FFTHalfWidth;
+    rowMax = _halfHeight * _width;
+    for (rowDst = originPixel * _width, rowSrc = _halfHeight * _width + _halfWidth; rowDst < rowMax; rowDst += _width, rowSrc += _width ) {
+        colMax = rowDst + _halfWidth;
         for (colDst = rowDst, colSrc = rowSrc; colDst < colMax; colDst++, colSrc++) {
             bitmap[colDst] = (int)(_DSPSplitComplex.realp[colSrc]);
             bitmap[colSrc] = (int)(_DSPSplitComplex.realp[colDst]);
@@ -177,9 +246,9 @@ const Float32 one = 1;
     }
     
     // swap NE and SW Sectors
-    rowMax = _FFTHeight * _FFTWidth;
-    for (rowDst = 128 * _FFTWidth, rowSrc = 0 * _FFTWidth + 128; rowDst < rowMax; rowDst += _FFTWidth, rowSrc += _FFTWidth ) {
-        colMax = rowDst + _FFTHalfWidth;
+    rowMax = _height * _width;
+    for (rowDst = _halfHeight * _width, rowSrc = originPixel * _width + _halfWidth; rowDst < rowMax; rowDst += _width, rowSrc += _width ) {
+        colMax = rowDst + _halfWidth;
         for (colDst = rowDst, colSrc = rowSrc; colDst < colMax; colDst++, colSrc++) {
             bitmap[colDst] = (int)(_DSPSplitComplex.realp[colSrc]);
             bitmap[colSrc] = (int)(_DSPSplitComplex.realp[colDst]);
