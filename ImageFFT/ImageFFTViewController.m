@@ -18,9 +18,9 @@
     CGRect _PrimaryViewerBounds;
     CGRect _SecondaryViewerBounds;
     
-    CVOpenGLESTextureRef _lumaTexture;
-    CVOpenGLESTextureRef _chromaTexture;
-    
+//    CVOpenGLESTextureRef _lumaTexture;
+//    CVOpenGLESTextureRef _chromaTexture;
+//    
     NSString* _sessionPreset;
     AVCaptureSession* _session;
     
@@ -181,7 +181,7 @@
     
     [(GLKView *)self.view display];
     
-    [self cleanUpTextures];
+//    [self cleanUpTextures];
 }
 
 /******************************************************************************
@@ -254,21 +254,21 @@
                ].outputImage;
 }
 
-/******************************************************************************/
-- (void) cleanUpTextures
-{
-    if (_lumaTexture) {
-        CFRelease(_lumaTexture);
-        _lumaTexture = NULL;
-    }
-    
-    if (_chromaTexture) {
-        CFRelease(_chromaTexture);
-        _chromaTexture = NULL;
-    }
-    
-    CVOpenGLESTextureCacheFlush(_videoTextureCache, 0);
-}
+///******************************************************************************/
+//- (void) cleanUpTextures
+//{
+//    if (_lumaTexture) {
+//        CFRelease(_lumaTexture);
+//        _lumaTexture = NULL;
+//    }
+//    
+//    if (_chromaTexture) {
+//        CFRelease(_chromaTexture);
+//        _chromaTexture = NULL;
+//    }
+//    
+//    CVOpenGLESTextureCacheFlush(_videoTextureCache, 0);
+//}
 
 /******************************************************************************/
 
