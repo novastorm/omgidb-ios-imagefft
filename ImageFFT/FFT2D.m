@@ -244,11 +244,10 @@ const UInt32 originPixel = 0;
     //
     vDSP_vclip(_DSPSplitComplex.realp, 1, &min, &max, _DSPSplitComplex.realp, 1, _FFTLength);
     
-    // Rearrange output sectors
+    // swap quadrants
     UInt32 rowUR, rowLR, rowUL, rowLL, rowMax
          , colUR, colLR, colUL, colLL, colMax;
     
-    // swap SE and NW Sectors
     rowMax = _halfHeight * _width;
     for (rowUL = originPixel * _width
         , rowUR = originPixel * _width + _halfWidth
