@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="6206.9" systemVersion="13E28" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" initialViewController="vXZ-lx-hvc">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="6245" systemVersion="13E28" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" initialViewController="vXZ-lx-hvc">
     <dependencies>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="7026.1"/>
-        <capability name="Constraints with attributes relative to the layout margin" minToolsVersion="6.0"/>
+        <deployment defaultVersion="1808" identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="6238"/>
+        <capability name="Constraints to layout margins" minToolsVersion="6.0"/>
     </dependencies>
     <scenes>
         <!--ImageFFT View Controller-->
@@ -32,18 +33,15 @@
                         </subviews>
                         <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="calibratedWhite"/>
                         <constraints>
-                            <constraint firstItem="Bpu-2t-tbw" firstAttribute="top" secondItem="SYF-8O-wGt" secondAttribute="bottom" constant="92" id="KKb-v9-94W"/>
-                            <constraint firstItem="SYF-8O-wGt" firstAttribute="leading" secondItem="Bpu-2t-tbw" secondAttribute="leading" id="OVS-te-oqa"/>
+                            <constraint firstItem="Bpu-2t-tbw" firstAttribute="top" secondItem="SYF-8O-wGt" secondAttribute="bottom" constant="92" id="Aek-bE-SyO"/>
+                            <constraint firstAttribute="trailingMargin" secondItem="SYF-8O-wGt" secondAttribute="trailing" constant="7" id="QdP-lv-JpN"/>
                             <constraint firstItem="2fi-mo-0CV" firstAttribute="top" secondItem="Bpu-2t-tbw" secondAttribute="bottom" constant="45" id="T5d-cE-RKw"/>
-                            <constraint firstAttribute="trailingMargin" secondItem="Bpu-2t-tbw" secondAttribute="trailing" constant="12" id="bpU-9k-Z7Z"/>
+                            <constraint firstItem="SYF-8O-wGt" firstAttribute="leading" secondItem="Bpu-2t-tbw" secondAttribute="leading" id="fct-e1-c1U"/>
                         </constraints>
                     </view>
                     <nil key="simulatedStatusBarMetrics"/>
                     <simulatedOrientationMetrics key="simulatedOrientationMetrics"/>
-                    <simulatedScreenMetrics key="simulatedDestinationMetrics" type="retina4">
-                        <size key="portraitSize" width="320" height="568"/>
-                        <size key="landscapeSize" width="568" height="320"/>
-                    </simulatedScreenMetrics>
+                    <simulatedScreenMetrics key="simulatedDestinationMetrics" type="retina4"/>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="x5A-6p-PRh" sceneMemberID="firstResponder"/>
             </objects>

@@ -10,13 +10,17 @@
 
 @interface FFT2D : NSObject
 
-+ (FFT2D *) FFT2DWithImage:(CIImage *)image;
++ (instancetype) FFT2DWithBounds:(CGRect)bounds;
++ (instancetype) FFT2DWithImage:(CIImage *)image;
 
 - (id) init;
+- (id) initWithBounds:(CGRect)bounds;
 - (id) initWithImage:(CIImage *)image;
 
+- (void) reinitWithBounds:(CGRect)bounds;
 - (void) reinitWithImage:(CIImage *)image;
 
-- (CIImage *) filterFFTForImage:(CIImage *)inImage;
+- (CIImage *) FFTWithCGImage:(CGImageRef)image;
+- (CIImage *) FFTWithCIImage:(CIImage *)image context:(CIContext *)context;
 
 @end

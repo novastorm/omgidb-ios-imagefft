@@ -10,6 +10,7 @@
 #import <CoreVideo/CVOpenGLESTextureCache.h>
 
 #import "ImageFFTViewController.h"
+#import "FFT2D.h"
 
 @interface ImageFFTViewController () {
     CIContext * _CIContext;
@@ -24,6 +25,8 @@
     AVCaptureSession* _session;
     
     CVOpenGLESTextureCacheRef _videoTextureCache;
+    
+    FFT2D * _FFT2D;
 
     size_t _FFTWidth;
     size_t _FFTHeight;
@@ -150,27 +153,9 @@
 /******************************************************************************/
 - (void) setupFFTAnalysis
 {
-    _FFTWidth = 256;
-    _FFTHeight = 256;
-    _FFTHalfWidth = _FFTWidth / 2;
-    _FFTHalfHeight = _FFTHeight / 2;
+    CGRect bounds = {0,0, 256,256};
     
-    _bitmap =  (Pixel_8 *)malloc(sizeof(Pixel_8) * _FFTWidth * _FFTHeight);
-    
-    _Log2NWidth = log2(_FFTWidth);
-    _Log2NHeight = log2(_FFTHeight);
-    
-    _Log2N = _Log2NWidth + _Log2NHeight;
-    
-    _ImageAnalysis = NULL;
-    _FFTLength = 1 << _Log2N;
-    _ScaleA = 0.1f;
-    _ScaleB = 1.0 / sqrt(_FFTLength);
-    
-    _DSPSplitComplex.realp = (Float32 *)calloc(_FFTLength, sizeof(Float32));
-    _DSPSplitComplex.imagp = (Float32 *)calloc(_FFTLength, sizeof(Float32));
-    
-    _ImageAnalysis = vDSP_create_fftsetup(_Log2N, kFFTRadix2);
+    _FFT2D = [FFT2D FFT2DWithBounds:bounds];
 }
 
 /******************************************************************************/
@@ -187,7 +172,7 @@
 
     CIImage * image = [self imageFromSampleBuffer:sampleBuffer];
 
-    CIImage * drawImage = [self filterFFTImage:image];
+    CIImage * drawImage = [_FFT2D FFTWithCIImage:image context:_CIContext];
 
     CGRect sourceRect = drawImage.extent;
     
@@ -269,71 +254,6 @@
                ].outputImage;
 }
 
-/******************************************************************************
- Create a 2DFFT CIImage from input CIImage
- ******************************************************************************/
-- (CIImage *) filterFFTImage:(CIImage *) inImage
-{
-    size_t width = inImage.extent.size.width;
-    size_t height = inImage.extent.size.height;
-    
-    CGRect bounds = CGRectMake(0, 0, width, height);
-    
-    Pixel_8 * bitmap = _bitmap;
-
-    size_t bytesPerPixel = 1;
-    size_t bitsPerComponent = 8;
-    size_t bytesPerRow = bytesPerPixel * width;
-
-    // Create a device-dependent RGB color space
-    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceGray();
-
-    CGBitmapInfo bitmapInfo = (CGBitmapInfo)kCGImageAlphaNone;
-
-    // Create a bitmap graphics context with the sample buffer data
-    CGContextRef context = CGBitmapContextCreate(bitmap, width, height, bitsPerComponent, bytesPerRow, colorSpace, bitmapInfo);
-
-    if (context == NULL) {
-        NSLog(@"Could not create CGContext");
-        return nil;
-    }
-    
-    CGImageRef aCGImage = [_CIContext createCGImage:inImage fromRect:inImage.extent];
-    
-    if (aCGImage == NULL) {
-        NSLog(@"cannot get a CGImage from inImage");
-        return nil;
-    }
-    
-    // draw image to bitmap context
-    CGContextDrawImage(context, bounds, aCGImage);
-    CGImageRelease(aCGImage);
-    
-    [self computeFFTForBitmap:bitmap];
-
-    // Create a CGImage from the pixel data in the bitmap graphics context
-    aCGImage = CGBitmapContextCreateImage(context);
-
-    if (aCGImage == NULL) {
-        NSLog(@"Cannot create quartzImage from context");
-        return nil;
-    }
-    
-    CIImage * outImage = [CIImage imageWithCGImage:aCGImage];
-    
-    if (outImage == NULL) {
-        NSLog(@"Cannot create outImage from quartzImage");
-        return nil;
-    }
-    
-    // Free up the context, color space,
-    CGContextRelease(context);
-    CGColorSpaceRelease(colorSpace);
-    CGImageRelease(aCGImage);
-    
-    return outImage;
-}
-
 /******************************************************************************/
 - (void) cleanUpTextures
 {
@@ -348,60 +268,6 @@
     }
     
     CVOpenGLESTextureCacheFlush(_videoTextureCache, 0);
-}
-
-/******************************************************************************/
-- (void) computeFFTForBitmap:(Pixel_8 *)bitmap
-{
-    for (UInt32 i = 0; i < _FFTLength; ++i) {
-        _DSPSplitComplex.realp[i] = (Float32)bitmap[i] / 255.0f;
-        _DSPSplitComplex.imagp[i] = 0.0;
-    }
- 
-    size_t col = _Log2NWidth;
-    size_t row = col;
-    
-    // FFT the data
-    vDSP_fft2d_zip(_ImageAnalysis, &_DSPSplitComplex, 1, 0, col, row, kFFTDirection_Forward);
-    
-    // get the absolute value
-//    vDSP_zvabs(&_DSPSplitComplex, 1, _DSPSplitComplex.realp, 1, _FFTLength);
-    // get the magnitude
-    vDSP_zvmags(&_DSPSplitComplex, 1, _DSPSplitComplex.realp, 1, _FFTLength);
-
-    vDSP_vsmul(_DSPSplitComplex.realp, 1, &_ScaleB, _DSPSplitComplex.realp, 1, _FFTLength);
-  
-    // log scale
-    vDSP_vdbcon(_DSPSplitComplex.realp, 1, &one, _DSPSplitComplex.realp, 1, _FFTLength, 1);
-
-    float min = 1.0f;
-    float max = 255.0f;
-//
-    vDSP_vclip(_DSPSplitComplex.realp, 1, &min, &max, _DSPSplitComplex.realp, 1, _FFTLength);
-
-    // Rearrange output sectors
-    UInt32 rowSrc, rowDst, rowMax, colSrc, colDst, colMax;
-    
-
-    // swap SE and NW Sectors
-    rowMax = _FFTHalfHeight * _FFTWidth;
-    for (rowDst = 0, rowSrc = 128 * _FFTWidth + 128; rowDst < rowMax; rowDst += _FFTWidth, rowSrc += _FFTWidth ) {
-        colMax = rowDst + _FFTHalfWidth;
-        for (colDst = rowDst, colSrc = rowSrc; colDst < colMax; colDst++, colSrc++) {
-            bitmap[colDst] = (int)(_DSPSplitComplex.realp[colSrc]);
-            bitmap[colSrc] = (int)(_DSPSplitComplex.realp[colDst]);
-        }
-    }
-
-    // swap NE and SW Sectors
-    rowMax = _FFTHeight * _FFTWidth;
-    for (rowDst = 128 * _FFTWidth, rowSrc = 0 * _FFTWidth + 128; rowDst < rowMax; rowDst += _FFTWidth, rowSrc += _FFTWidth ) {
-        colMax = rowDst + _FFTHalfWidth;
-        for (colDst = rowDst, colSrc = rowSrc; colDst < colMax; colDst++, colSrc++) {
-            bitmap[colDst] = (int)(_DSPSplitComplex.realp[colSrc]);
-            bitmap[colSrc] = (int)(_DSPSplitComplex.realp[colDst]);
-        }
-    }
 }
 
 /******************************************************************************/

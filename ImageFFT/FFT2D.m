@@ -13,7 +13,6 @@
 #import "FFT2D.h"
 
 @interface FFT2D () {
-    CIContext * _CIContext;
     CGContextRef _CGBitmapContext;
 
     CGRect _bounds;
@@ -44,6 +43,8 @@
 
     UInt32 _halfWidth;
     UInt32 _halfHeight;
+    
+    CIImage * _outputImage;
 }
 
 @end
@@ -64,18 +65,19 @@ const UInt32 originPixel = 0;
     
     _colorSpace = CGColorSpaceCreateDeviceGray();
     _bitmapInfo = (CGBitmapInfo)kCGImageAlphaNone;
+    _outputImage = nil;
 
     return self;
 }
 
 /******************************************************************************/
-+ (FFT2D *) FFT2DWithBounds:(CGRect)bounds
++ (instancetype) FFT2DWithBounds:(CGRect)bounds
 {
     return [[FFT2D alloc] initWithBounds:bounds];
 }
 
 /******************************************************************************/
-+ (FFT2D *) FFT2DWithImage:(CIImage *)image
++ (instancetype) FFT2DWithImage:(CIImage *)image
 {
     return [[FFT2D alloc] initWithImage:image];
 }
@@ -89,7 +91,9 @@ const UInt32 originPixel = 0;
     return self;
 }
 
-/******************************************************************************/
+/**
+ Initialize FFT2D with an image
+*/
 - (id) initWithImage:(CIImage *)image
 {
     self = [self init];
@@ -98,9 +102,9 @@ const UInt32 originPixel = 0;
     return self;
 }
 
-/******************************************************************************
- Setup processor for bounds
- ******************************************************************************/
+/**
+ Setup processor with bounds
+ */
 - (void) reinitWithBounds:(CGRect)bounds
 {
     if (CGRectEqualToRect(_bounds, bounds)) {
@@ -114,8 +118,8 @@ const UInt32 originPixel = 0;
     if (_bitmap) { free(_bitmap); }
     _bitmap =  (Pixel_8 *)malloc(sizeof(Pixel_8) * _width * _height);
     
-    _halfWidth = _width / 2;
-    _halfHeight = _height / 2;
+    _halfWidth = _width >> 1;
+    _halfHeight = _height >> 1;
     
     _Log2NWidth = log2(_width);
     _Log2NHeight = log2(_height);
@@ -165,34 +169,26 @@ const UInt32 originPixel = 0;
 }
 
 /******************************************************************************
- Create a 2DFFT CIImage from input CIImage
+ Create a 2DFFT CIImage from input CGImage
  ******************************************************************************/
-- (CIImage *) filterFFTForImage:(CIImage *) inImage
+- (CIImage *) FFTWithCGImage:(CGImageRef)image
 {
-    CGImageRef aCGImage = [_CIContext createCGImage:inImage fromRect:inImage.extent];
-    
-    if (aCGImage == NULL) {
-        NSLog(@"cannot get a CGImage from inImage");
-        return nil;
-    }
-    
     // draw image to bitmap context
-    CGContextDrawImage(_CGBitmapContext, _bounds, aCGImage);
-    CGImageRelease(aCGImage);
+    CGContextDrawImage(_CGBitmapContext, _bounds, image);
     
     [self computeFFTForBitmap:_bitmap];
     
     // Create a CGImage from the pixel data in the bitmap graphics context
-    aCGImage = CGBitmapContextCreateImage(_CGBitmapContext);
+    CGImageRef aCGImage = CGBitmapContextCreateImage(_CGBitmapContext);
     
     if (aCGImage == NULL) {
         NSLog(@"Cannot create quartzImage from context");
         return nil;
     }
     
-    CIImage * outImage = [CIImage imageWithCGImage:aCGImage];
+    _outputImage = [CIImage imageWithCGImage:aCGImage];
     
-    if (outImage == NULL) {
+    if (_outputImage == nil) {
         NSLog(@"Cannot create outImage from quartzImage");
         return nil;
     }
@@ -200,7 +196,26 @@ const UInt32 originPixel = 0;
     // Free up the context, color space,
     CGImageRelease(aCGImage);
     
-    return outImage;
+    return _outputImage;
+}
+
+/******************************************************************************
+ Create a 2DFFT CIImage from input CIImage
+ ******************************************************************************/
+- (CIImage *) FFTWithCIImage:(CIImage *)image context:(CIContext *)context
+{
+    CGImageRef aCGImage = [context createCGImage:image fromRect:image.extent];
+    
+    if (aCGImage == NULL) {
+        NSLog(@"cannot get a CGImage from image");
+        return nil;
+    }
+    
+    _outputImage = [self FFTWithCGImage:aCGImage];
+    
+    CGImageRelease(aCGImage);
+    
+    return _outputImage;
 }
 
 /******************************************************************************/
@@ -211,11 +226,8 @@ const UInt32 originPixel = 0;
         _DSPSplitComplex.imagp[i] = 0.0;
     }
     
-    size_t col = _Log2NWidth;
-    size_t row = col;
-    
     // FFT the data
-    vDSP_fft2d_zip(_ImageAnalysis, &_DSPSplitComplex, 1, 0, col, row, kFFTDirection_Forward);
+    vDSP_fft2d_zip(_ImageAnalysis, &_DSPSplitComplex, 1, 0, _Log2NWidth, _Log2NHeight, kFFTDirection_Forward);
     
     // get the absolute value
     // vDSP_zvabs(&_DSPSplitComplex, 1, _DSPSplitComplex.realp, 1, _FFTLength);
@@ -227,31 +239,37 @@ const UInt32 originPixel = 0;
     // log scale
     vDSP_vdbcon(_DSPSplitComplex.realp, 1, &one, _DSPSplitComplex.realp, 1, _FFTLength, 1);
     
-    float min = 1.0f;
+    float min = 0.9f;
     float max = 255.0f;
     //
     vDSP_vclip(_DSPSplitComplex.realp, 1, &min, &max, _DSPSplitComplex.realp, 1, _FFTLength);
     
     // Rearrange output sectors
-    UInt32 rowSrc, rowDst, rowMax, colSrc, colDst, colMax;
+    UInt32 rowUR, rowLR, rowUL, rowLL, rowMax
+         , colUR, colLR, colUL, colLL, colMax;
     
     // swap SE and NW Sectors
     rowMax = _halfHeight * _width;
-    for (rowDst = originPixel * _width, rowSrc = _halfHeight * _width + _halfWidth; rowDst < rowMax; rowDst += _width, rowSrc += _width ) {
-        colMax = rowDst + _halfWidth;
-        for (colDst = rowDst, colSrc = rowSrc; colDst < colMax; colDst++, colSrc++) {
-            bitmap[colDst] = (int)(_DSPSplitComplex.realp[colSrc]);
-            bitmap[colSrc] = (int)(_DSPSplitComplex.realp[colDst]);
-        }
-    }
-    
-    // swap NE and SW Sectors
-    rowMax = _height * _width;
-    for (rowDst = _halfHeight * _width, rowSrc = originPixel * _width + _halfWidth; rowDst < rowMax; rowDst += _width, rowSrc += _width ) {
-        colMax = rowDst + _halfWidth;
-        for (colDst = rowDst, colSrc = rowSrc; colDst < colMax; colDst++, colSrc++) {
-            bitmap[colDst] = (int)(_DSPSplitComplex.realp[colSrc]);
-            bitmap[colSrc] = (int)(_DSPSplitComplex.realp[colDst]);
+    for (rowUL = originPixel * _width
+        , rowUR = originPixel * _width + _halfWidth
+        , rowLL = _halfHeight * _width
+        , rowLR = _halfHeight * _width + _halfWidth
+        ;
+        rowUL < rowMax
+        ;
+        rowUL += _width, rowUR += _width, rowLL += _width, rowLR += _width)
+    {
+        colMax = rowUL + _halfWidth;
+        for (colUL = rowUL, colUR = rowUR, colLL = rowLL, colLR = rowLR
+            ;
+            colUL < colMax
+            ;
+            colUL++, colUR++, colLL++, colLR++)
+        {
+            bitmap[colUL] = (int)(_DSPSplitComplex.realp[colLR]);
+            bitmap[colLR] = (int)(_DSPSplitComplex.realp[colUL]);
+            bitmap[colUR] = (int)(_DSPSplitComplex.realp[colLL]);
+            bitmap[colLL] = (int)(_DSPSplitComplex.realp[colUR]);
         }
     }
 }
