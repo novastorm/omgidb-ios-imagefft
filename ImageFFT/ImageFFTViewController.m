@@ -10,19 +10,23 @@
 #import <CoreVideo/CVOpenGLESTextureCache.h>
 
 #import "ImageFFTViewController.h"
+#import "FFT2D.h"
 
 @interface ImageFFTViewController () {
     CIContext * _CIContext;
     EAGLContext* _EAGLContext;
-    CGRect _videoPreviewViewBounds;
+    CGRect _PrimaryViewerBounds;
+    CGRect _SecondaryViewerBounds;
     
-    CVOpenGLESTextureRef _lumaTexture;
-    CVOpenGLESTextureRef _chromaTexture;
-    
+//    CVOpenGLESTextureRef _lumaTexture;
+//    CVOpenGLESTextureRef _chromaTexture;
+//    
     NSString* _sessionPreset;
     AVCaptureSession* _session;
     
     CVOpenGLESTextureCacheRef _videoTextureCache;
+    
+    FFT2D * _FFT2D;
 
     size_t _FFTWidth;
     size_t _FFTHeight;
@@ -34,7 +38,8 @@
     FFTSetup _ImageAnalysis;
     DSPSplitComplex _DSPSplitComplex;
 //    Float32 _FFTNormalizationFactor;
-    Float32 _Scale;
+    Float32 _ScaleA;
+    Float32 _ScaleB;
     UInt32 _FFTLength;
     UInt32 _Log2N;
     
@@ -45,7 +50,11 @@
 @end
 
 @implementation ImageFFTViewController
-            
+
+//const Float32 kAdjust0DB = 1.5849e-13;
+//const Float32 one = 1;
+
+/******************************************************************************/
 - (void)viewDidLoad {
     [super viewDidLoad];
 
@@ -68,12 +77,18 @@
     CGFloat width = view.frame.size.width * view.contentScaleFactor;
     CGFloat height = view.frame.size.height * view.contentScaleFactor;
     
-    _videoPreviewViewBounds = CGRectZero;
-    _videoPreviewViewBounds.origin.x = 0;
-    _videoPreviewViewBounds.origin.y = height - width;
-    _videoPreviewViewBounds.size.width = width;
-    _videoPreviewViewBounds.size.height = width;
+    _PrimaryViewerBounds = CGRectZero;
+    _PrimaryViewerBounds.origin.x = 0;
+    _PrimaryViewerBounds.origin.y = height - width;
+    _PrimaryViewerBounds.size.width = width;
+    _PrimaryViewerBounds.size.height = width;
     
+    _SecondaryViewerBounds = CGRectZero;
+    _SecondaryViewerBounds.origin.x = 0.5f * view.frame.size.width;
+    _SecondaryViewerBounds.origin.y = 0.25f * view.frame.size.width;
+    _SecondaryViewerBounds.size.width = view.frame.size.width;
+    _SecondaryViewerBounds.size.height = view.frame.size.width;
+
     [self setupFFTAnalysis];
     [self setupGL];
     [self setupAVCapture];
@@ -138,26 +153,9 @@
 /******************************************************************************/
 - (void) setupFFTAnalysis
 {
-    _FFTWidth = 256;
-    _FFTHeight = 256;
-    _FFTHalfWidth = _FFTWidth / 2;
-    _FFTHalfHeight = _FFTHeight / 2;
+    CGRect bounds = {0,0, 256,256};
     
-    _bitmap =  (Pixel_8 *)malloc(sizeof(Pixel_8) * _FFTWidth * _FFTHeight);
-    
-    _Log2NWidth = log2(_FFTWidth);
-    _Log2NHeight = log2(_FFTHeight);
-    
-    _Log2N = _Log2NWidth + _Log2NHeight;
-    
-    _ImageAnalysis = NULL;
-    _FFTLength = 1 << _Log2N;
-    _Scale = 1.0 / _FFTWidth; // 1.0 / sqrt(_FFTLength)
-    
-    _DSPSplitComplex.realp = (Float32 *)calloc(_FFTLength, sizeof(Float32));
-    _DSPSplitComplex.imagp = (Float32 *)calloc(_FFTLength, sizeof(Float32));
-    
-    _ImageAnalysis = vDSP_create_fftsetup(_Log2N, kFFTRadix2);
+    _FFT2D = [FFT2D FFT2DWithBounds:bounds];
 }
 
 /******************************************************************************/
@@ -172,15 +170,18 @@
 
     [connection setVideoOrientation:AVCaptureVideoOrientationPortrait];
 
-    CIImage * drawImage = [self imageFromSampleBuffer:sampleBuffer];
+    CIImage * image = [self imageFromSampleBuffer:sampleBuffer];
+
+    CIImage * drawImage = [_FFT2D FFTWithCIImage:image context:_CIContext];
 
     CGRect sourceRect = drawImage.extent;
     
-    [_CIContext drawImage:drawImage inRect:_videoPreviewViewBounds fromRect:sourceRect];
+    [_CIContext drawImage:image inRect:_SecondaryViewerBounds fromRect:sourceRect];
+    [_CIContext drawImage:drawImage inRect:_PrimaryViewerBounds fromRect:sourceRect];
     
     [(GLKView *)self.view display];
     
-    [self cleanUpTextures];
+//    [self cleanUpTextures];
 }
 
 /******************************************************************************
@@ -191,15 +192,11 @@
     // Get a CMSampleBuffer's Core Video image buffer for the media data
     CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
 
-    CVPixelBufferLockBaseAddress(imageBuffer, 0);
-
     CIImage * image = [CIImage imageWithCVPixelBuffer:imageBuffer];
     
     image = [self filterSquareImage:image];
     image = [self filterGrayscaleImage:image];
-    image = [self filterFFTImage:image];
-    
-    CVPixelBufferUnlockBaseAddress(imageBuffer, 0);
+    image = [self filterScaleImage:image fromSize:image.extent.size.width toSize:256];
 
     return image;
 }
@@ -212,6 +209,10 @@
 
     // crop to square
     CGRect cropRect = inImage.extent;
+    
+    if (cropRect.size.width == cropRect.size.height) {
+        return inImage;
+    }
 
     if (cropRect.size.width < cropRect.size.height) {
         cropRect.size.height = cropRect.size.width;
@@ -220,11 +221,10 @@
         cropRect.size.width = cropRect.size.height;
     }
     
-    CIFilter * filter = [CIFilter filterWithName:@"CICrop"];
-    [filter setValue:inImage forKey:@"inputImage"];
-    [filter setValue:[CIVector vectorWithCGRect:cropRect] forKey:@"inputRectangle"];
-
-    return [filter valueForKey:kCIOutputImageKey];
+    return [CIFilter filterWithName:@"CICrop" keysAndValues:
+        kCIInputImageKey, inImage
+        , @"inputRectangle", [CIVector vectorWithCGRect:cropRect]
+        , nil].outputImage;
 }
 
 /******************************************************************************
@@ -232,157 +232,43 @@
  ******************************************************************************/
 - (CIImage *) filterGrayscaleImage:(CIImage *)inImage
 {
-    CIFilter * filter = [CIFilter filterWithName:@"CIMaximumComponent"];
-    
-    [filter setValue:inImage forKey:@"inputImage"];
-    
-    return [filter valueForKey:kCIOutputImageKey];
+    return [CIFilter filterWithName:@"CIMaximumComponent"
+        keysAndValues:
+            kCIInputImageKey, inImage
+            , nil
+        ].outputImage;
 }
 
 /******************************************************************************
- Create a FFT CIImage from input CIImage
+ Scale input CIImage
  ******************************************************************************/
-- (CIImage *) filterFFTImage:(CIImage *) inImage
+- (CIImage *) filterScaleImage:(CIImage *)inImage fromSize:(Float32)fromSize toSize:(Float32)toSize
 {
-    size_t width = inImage.extent.size.width;
-    size_t height = inImage.extent.size.height;
+    Float32 scale = toSize / fromSize;
     
-    // scale image to 256x256
-    float scale = 256.0f / width;
-    
-    CIFilter * filter = [CIFilter filterWithName:@"CILanczosScaleTransform"
-    	keysAndValues:
-            kCIInputImageKey, inImage
-            , @"inputScale", [NSNumber numberWithFloat:scale]
-            , nil];
-    
-    inImage = [filter valueForKey:kCIOutputImageKey];
-    
-    width = inImage.extent.size.width;
-    height = inImage.extent.size.height;
-    
-    CGRect bounds = CGRectMake(0, 0, width, height);
-    
-    Pixel_8 * bitmap = _bitmap;
-
-    size_t bytesPerPixel = 1;
-    size_t bitsPerComponent = 8;
-    size_t bytesPerRow = bytesPerPixel * width;
-
-    // Create a device-dependent RGB color space
-    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceGray();
-
-    CGBitmapInfo bitmapInfo = (CGBitmapInfo)kCGImageAlphaNone;
-
-    // Create a bitmap graphics context with the sample buffer data
-    CGContextRef context = CGBitmapContextCreate(bitmap, width, height, bitsPerComponent, bytesPerRow, colorSpace, bitmapInfo);
-
-    if (context == NULL) {
-        NSLog(@"Could not create CGContext");
-        return nil;
-    }
-    
-    CGImageRef aCGImage = [_CIContext createCGImage:inImage fromRect:inImage.extent];
-    
-    if (aCGImage == NULL) {
-        NSLog(@"cannot get a CGImage from inImage");
-        return nil;
-    }
-    
-    // draw image to bitmap context
-    CGContextDrawImage(context, bounds, aCGImage);
-    CGImageRelease(aCGImage);
-    
-    [self computeFFTForBitmap:bitmap];
-
-    // Create a Quartz image from the pixel data in the bitmap graphics context
-    CGImageRef quartzImage = CGBitmapContextCreateImage(context);
-
-    if (quartzImage == NULL) {
-        NSLog(@"Cannot create quartzImage from context");
-        return nil;
-    }
-    
-    // Free up the context and color space
-    CGContextRelease(context);
-    CGColorSpaceRelease(colorSpace);
-
-    CIImage * outImage = [CIImage imageWithCGImage:quartzImage];
-    
-    if (outImage == NULL) {
-        NSLog(@"Cannot create outImage from quartzImage");
-        return nil;
-    }
-    
-    CGImageRelease(quartzImage);
-    
-    // filter quad
-    
-    return outImage;
+    return [CIFilter filterWithName:@"CILanczosScaleTransform"
+                         keysAndValues:
+               kCIInputImageKey, inImage
+               , @"inputScale", [NSNumber numberWithFloat:scale]
+               , nil
+               ].outputImage;
 }
 
-/******************************************************************************/
-- (void) cleanUpTextures
-{
-    if (_lumaTexture) {
-        CFRelease(_lumaTexture);
-        _lumaTexture = NULL;
-    }
-    
-    if (_chromaTexture) {
-        CFRelease(_chromaTexture);
-        _chromaTexture = NULL;
-    }
-    
-    CVOpenGLESTextureCacheFlush(_videoTextureCache, 0);
-}
-
-/******************************************************************************/
-- (void) computeFFTForBitmap:(Pixel_8 *)bitmap
-{
-
-    for (UInt32 i = 0; i < _FFTLength; ++i) {
-        _DSPSplitComplex.realp[i] = (Float32)bitmap[i] / 255.0f;
-        _DSPSplitComplex.imagp[i] = 0.0;
-    }
-    
-    size_t col = _Log2NWidth;
-    size_t row = col;
-    
-    // FFT the data
-    vDSP_fft2d_zip(_ImageAnalysis, &_DSPSplitComplex, 1, 0, col, row, kFFTDirection_Forward);
-    
-    // get the mangitude
-    vDSP_zvabs(&_DSPSplitComplex, 1, _DSPSplitComplex.realp, 1, _FFTLength);
-    
-    // scale the data to original scale
-    vDSP_vsmul(_DSPSplitComplex.realp, 1, &_Scale, _DSPSplitComplex.realp, 1, _FFTLength);
-//    vDSP_vsmul(_DSPSplitComplex.imagp, 1, &_Scale, _DSPSplitComplex.imagp, 1, _FFTLength); // no need to scale. not used in bitmap.
-
-    // Rearrange output sectors
-    UInt32 rowSrc, rowDst, rowMax, colSrc, colDst, colMax;
-    
-
-    // swap SE and NW Sectors
-    rowMax = _FFTHalfHeight * _FFTWidth;
-    for (rowDst = 0, rowSrc = 128 * _FFTWidth + 128; rowDst < rowMax; rowDst += _FFTWidth, rowSrc += _FFTWidth ) {
-        colMax = rowDst + _FFTHalfWidth;
-        for (colDst = rowDst, colSrc = rowSrc; colDst < colMax; colDst++, colSrc++) {
-            bitmap[colDst] = (int)(_DSPSplitComplex.realp[colSrc] * 255.0);
-            bitmap[colSrc] = (int)(_DSPSplitComplex.realp[colDst] * 255.0);
-        }
-    }
-
-    // swap NE and SW Sectors
-    rowMax = _FFTHeight * _FFTWidth;
-    for (rowDst = 128 * _FFTWidth, rowSrc = 0 * _FFTWidth + 128; rowDst < rowMax; rowDst += _FFTWidth, rowSrc += _FFTWidth ) {
-        colMax = rowDst + _FFTHalfWidth;
-        for (colDst = rowDst, colSrc = rowSrc; colDst < colMax; colDst++, colSrc++) {
-            bitmap[colDst] = (int)(_DSPSplitComplex.realp[colSrc] * 255.0);
-            bitmap[colSrc] = (int)(_DSPSplitComplex.realp[colDst] * 255.0);
-        }
-    }
-}
+///******************************************************************************/
+//- (void) cleanUpTextures
+//{
+//    if (_lumaTexture) {
+//        CFRelease(_lumaTexture);
+//        _lumaTexture = NULL;
+//    }
+//    
+//    if (_chromaTexture) {
+//        CFRelease(_chromaTexture);
+//        _chromaTexture = NULL;
+//    }
+//    
+//    CVOpenGLESTextureCacheFlush(_videoTextureCache, 0);
+//}
 
 /******************************************************************************/
 
