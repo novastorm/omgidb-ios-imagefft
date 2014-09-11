@@ -13,6 +13,7 @@
 		3E7BAFE319A285EA00BB6A3B /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 3E7BAFE119A285EA00BB6A3B /* Main.storyboard */; };
 		3E7BAFE519A285EA00BB6A3B /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3E7BAFE419A285EA00BB6A3B /* Images.xcassets */; };
 		3E7BAFF119A285EA00BB6A3B /* ImageFFTTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 3E7BAFF019A285EA00BB6A3B /* ImageFFTTests.m */; };
+		3EE7DE2619BE861000BDAB76 /* FFT2D.m in Sources */ = {isa = PBXBuildFile; fileRef = 3EE7DE2519BE861000BDAB76 /* FFT2D.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -38,6 +39,8 @@
 		3E7BAFEA19A285EA00BB6A3B /* ImageFFTTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ImageFFTTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		3E7BAFEF19A285EA00BB6A3B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		3E7BAFF019A285EA00BB6A3B /* ImageFFTTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ImageFFTTests.m; sourceTree = "<group>"; };
+		3EE7DE2419BE861000BDAB76 /* FFT2D.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FFT2D.h; sourceTree = "<group>"; };
+		3EE7DE2519BE861000BDAB76 /* FFT2D.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = FFT2D.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -84,7 +87,8 @@
 				3E7BAFDE19A285EA00BB6A3B /* ImageFFTViewController.h */,
 				3E7BAFDF19A285EA00BB6A3B /* ImageFFTViewController.m */,
 				3E7BAFE119A285EA00BB6A3B /* Main.storyboard */,
-				3E7BAFE419A285EA00BB6A3B /* Images.xcassets */,
+				3EE7DE2419BE861000BDAB76 /* FFT2D.h */,
+				3EE7DE2519BE861000BDAB76 /* FFT2D.m */,
 				3E7BAFD719A285EA00BB6A3B /* Supporting Files */,
 			);
 			path = ImageFFT;
@@ -93,6 +97,7 @@
 		3E7BAFD719A285EA00BB6A3B /* Supporting Files */ = {
 			isa = PBXGroup;
 			children = (
+				3E7BAFE419A285EA00BB6A3B /* Images.xcassets */,
 				3E7BAFD819A285EA00BB6A3B /* Info.plist */,
 				3E7BAFD919A285EA00BB6A3B /* main.m */,
 			);
@@ -215,6 +220,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3EE7DE2619BE861000BDAB76 /* FFT2D.m in Sources */,
 				3E7BAFE019A285EA00BB6A3B /* ImageFFTViewController.m in Sources */,
 				3E7BAFDD19A285EA00BB6A3B /* AppDelegate.m in Sources */,
 				3E7BAFDA19A285EA00BB6A3B /* main.m in Sources */,
