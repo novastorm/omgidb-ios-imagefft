@@ -6,11 +6,12 @@
 //  Copyright (c) 2014 Adland Lee. All rights reserved.
 //
 
+#import "ImageFFTViewController.h"
+
+#import "FFT2D.h"
+
 #import <Accelerate/Accelerate.h>
 #import <CoreVideo/CVOpenGLESTextureCache.h>
-
-#import "ImageFFTViewController.h"
-#import "FFT2D.h"
 
 @interface ImageFFTViewController () {
     CIContext * _CIContext;
@@ -22,7 +23,8 @@
 //    CVOpenGLESTextureRef _chromaTexture;
 //    
     NSString* _sessionPreset;
-    AVCaptureSession* _session;
+    AVCaptureSession * _session;
+    AVCaptureStillImageOutput * _stillImageOutput;
     
     CVOpenGLESTextureCacheRef _videoTextureCache;
     
@@ -68,6 +70,7 @@
     
     GLKView * view = (GLKView *)self.view;
     view.context = _EAGLContext;
+    
     self.preferredFramesPerSecond = 60;
     
     view.contentScaleFactor = [UIScreen mainScreen].scale;
@@ -127,6 +130,7 @@
     }
     
     _session = [[AVCaptureSession alloc] init];
+    
     [_session beginConfiguration];
     
     [_session setSessionPreset:_sessionPreset];
@@ -135,10 +139,10 @@
     if (nil == videoDevice) assert(0);
     
     NSError* error;
-    AVCaptureDeviceInput* input = [AVCaptureDeviceInput deviceInputWithDevice:videoDevice error:&error];
+    AVCaptureDeviceInput* videoDeviceInput = [AVCaptureDeviceInput deviceInputWithDevice:videoDevice error:&error];
     if (error) assert(0);
     
-    [_session addInput:input];
+    [_session addInput:videoDeviceInput];
     
     
     AVCaptureVideoDataOutput* dataOutput = [[AVCaptureVideoDataOutput alloc] init];
@@ -186,7 +190,7 @@
     
     [(GLKView *)self.view display];
     
-//    [self cleanUpTextures];
+    [self cleanUpTextures];
 }
 
 /******************************************************************************
@@ -260,8 +264,8 @@
 }
 
 ///******************************************************************************/
-//- (void) cleanUpTextures
-//{
+- (void) cleanUpTextures
+{
 //    if (_lumaTexture) {
 //        CFRelease(_lumaTexture);
 //        _lumaTexture = NULL;
@@ -271,9 +275,16 @@
 //        CFRelease(_chromaTexture);
 //        _chromaTexture = NULL;
 //    }
-//    
-//    CVOpenGLESTextureCacheFlush(_videoTextureCache, 0);
-//}
+    
+    CVOpenGLESTextureCacheFlush(_videoTextureCache, 0);
+}
+
+/******************************************************************************/
+- (IBAction)takePicture:(id)sender
+{
+//    AVCaptureConnection *stillImageConnection = [stillImageConnection]
+}
+
 
 /******************************************************************************/
 
