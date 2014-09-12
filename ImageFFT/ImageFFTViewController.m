@@ -94,6 +94,11 @@
     [self setupAVCapture];
 }
 
+- (BOOL)prefersStatusBarHidden
+{
+    return true;
+}
+
 - (void)didReceiveMemoryWarning {
     [super didReceiveMemoryWarning];
     // Dispose of any resources that can be recreated.
