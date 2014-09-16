@@ -77,16 +77,41 @@ const UInt32 originPixel = 0;
 }
 
 /******************************************************************************/
++ (instancetype) FFT2DWithBounds:(CGRect)bounds context:(CIContext *)context
+{
+    return [[FFT2D alloc] initWithBounds:bounds context:context];
+}
+
+/******************************************************************************/
 + (instancetype) FFT2DWithImage:(CIImage *)image
 {
     return [[FFT2D alloc] initWithImage:image];
 }
 
 /******************************************************************************/
++ (instancetype) FFT2DWithImage:(CIImage *)image context:(CIContext *)context
+{
+    return [[FFT2D alloc] initWithImage:image context:context];
+}
+
+/**
+ Initialize with bounds
+ */
 - (id) initWithBounds:(CGRect)bounds
 {
     self = [self init];
     [self reinitWithBounds:bounds];
+    
+    return self;
+}
+
+/**
+ Initialize with bounds and context
+ */
+- (id) initWithBounds:(CGRect)bounds context:(CIContext *)context
+{
+    self = [self initWithBounds:bounds];
+    self.ciContext = context;
     
     return self;
 }
@@ -98,6 +123,17 @@ const UInt32 originPixel = 0;
 {
     self = [self init];
     [self reinitWithImage:image];
+
+    return self;
+}
+
+/**
+ Initialize FFT2D with an image
+ */
+- (id) initWithImage:(CIImage *)image context:(CIContext *)context
+{
+    self = [self initWithImage:image];
+    self.ciContext = context;
     
     return self;
 }
@@ -216,6 +252,19 @@ const UInt32 originPixel = 0;
     CGImageRelease(aCGImage);
     
     return _outputImage;
+}
+
+/******************************************************************************
+ Create a 2DFFT CIImage from input CIImage
+ ******************************************************************************/
+- (CIImage *) FFTWithCIImage:(CIImage *)image
+{
+    if (! self.ciContext) {
+        NSLog(@"context required");
+        return nil;
+    }
+    
+    return [self FFTWithCIImage:image context:self.ciContext];
 }
 
 /******************************************************************************/

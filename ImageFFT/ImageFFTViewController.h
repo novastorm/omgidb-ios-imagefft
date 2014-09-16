@@ -6,9 +6,9 @@
 //  Copyright (c) 2014 Adland Lee. All rights reserved.
 //
 
-#import <UIKit/UIKit.h>
-#import <GLKit/GLKit.h>
 #import <AVFoundation/AVFoundation.h>
+#import <GLKit/GLKit.h>
+#import <UIKit/UIKit.h>
 
 @interface ImageFFTViewController : GLKViewController <AVCaptureVideoDataOutputSampleBufferDelegate>
 

@@ -86,9 +86,9 @@
 				3E7BAFDC19A285EA00BB6A3B /* AppDelegate.m */,
 				3E7BAFDE19A285EA00BB6A3B /* ImageFFTViewController.h */,
 				3E7BAFDF19A285EA00BB6A3B /* ImageFFTViewController.m */,
-				3E7BAFE119A285EA00BB6A3B /* Main.storyboard */,
 				3EE7DE2419BE861000BDAB76 /* FFT2D.h */,
 				3EE7DE2519BE861000BDAB76 /* FFT2D.m */,
+				3E7BAFE119A285EA00BB6A3B /* Main.storyboard */,
 				3E7BAFD719A285EA00BB6A3B /* Supporting Files */,
 			);
 			path = ImageFFT;
