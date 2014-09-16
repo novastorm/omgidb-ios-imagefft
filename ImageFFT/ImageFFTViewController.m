@@ -11,6 +11,7 @@
 #import "FFT2D.h"
 
 #import <Accelerate/Accelerate.h>
+#import <AssetsLibrary/AssetsLibrary.h>
 #import <CoreVideo/CVOpenGLESTextureCache.h>
 
 @interface ImageFFTViewController () {
@@ -23,10 +24,11 @@
 //    CVOpenGLESTextureRef _chromaTexture;
 //    
     NSString* _sessionPreset;
-    AVCaptureSession * _session;
     AVCaptureStillImageOutput * _stillImageOutput;
     
     CVOpenGLESTextureCacheRef _videoTextureCache;
+    
+    CGFloat _effectiveScale;
     
     FFT2D * _FFT2D;
 
@@ -49,16 +51,36 @@
     size_t _FFTHalfHeight;
 }
 
+@property (nonatomic) dispatch_queue_t sessionQueue; // Communicate with the session and other session objects on this queue.
+@property (nonatomic) AVCaptureSession *session;
+@property (nonatomic, getter = isDeviceAuthorized) BOOL deviceAuthorized;
+@property (nonatomic, readonly, getter = isSessionRunningAndDeviceAuthorized) BOOL sessionRunningAndDeviceAuthorized;
+
 @end
 
 @implementation ImageFFTViewController
 
+static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillImageIsCapturingStillImageContext;
+
 //const Float32 kAdjust0DB = 1.5849e-13;
 //const Float32 one = 1;
+
+- (BOOL)isSessionRunningAndDeviceAuthorized
+{
+    return [self.session isRunning] && [self isDeviceAuthorized];
+}
+
++ (NSSet *)keyPathsForValuesAffectingSessionRunningAndDeviceAuthorized
+{
+    return [NSSet setWithObjects:@"session.running", @"deviceAuthorized", nil];
+}
 
 /******************************************************************************/
 - (void)viewDidLoad {
     [super viewDidLoad];
+
+    // Check for device authorization
+    [self checkDeviceAuthorizationStatus];
 
     _EAGLContext = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
     
@@ -129,7 +151,7 @@
         return;
     }
     
-    _session = [[AVCaptureSession alloc] init];
+    self.session = [[AVCaptureSession alloc] init];
     
     [_session beginConfiguration];
     
@@ -144,16 +166,26 @@
     
     [_session addInput:videoDeviceInput];
     
+    _stillImageOutput = [AVCaptureStillImageOutput new];
+//    [_stillImageOutput addObserver:self forKeyPath:@"capturingStillImage" options:NSKeyValueObservingOptionNew context:AVCaptureStillImageIsCapturingStillImageContext];
+    [_session addOutput:_stillImageOutput];
     
-    AVCaptureVideoDataOutput* dataOutput = [[AVCaptureVideoDataOutput alloc] init];
-    [dataOutput setAlwaysDiscardsLateVideoFrames:YES];
-    [dataOutput setVideoSettings:[NSDictionary
-    	dictionaryWithObject:[NSNumber numberWithInt:kCVPixelFormatType_420YpCbCr8BiPlanarFullRange]
-        forKey:(id)kCVPixelBufferPixelFormatTypeKey]
-        ];
-    [dataOutput setSampleBufferDelegate:self queue:dispatch_get_main_queue()];
+    AVCaptureVideoDataOutput* videoDataOutput = [[AVCaptureVideoDataOutput alloc] init];
+    [videoDataOutput setAlwaysDiscardsLateVideoFrames:YES];
+//    [videoDataOutput setVideoSettings:[NSDictionary
+//    	dictionaryWithObject:[NSNumber numberWithInt:kCVPixelFormatType_420YpCbCr8BiPlanarFullRange]
+//        forKey:(id)kCVPixelBufferPixelFormatTypeKey]
+//        ];
+    [videoDataOutput setVideoSettings:@{
+        (id)kCVPixelBufferPixelFormatTypeKey : [NSNumber numberWithInt:kCVPixelFormatType_420YpCbCr8BiPlanarFullRange]
+        }
+     ];
+    [videoDataOutput setSampleBufferDelegate:self queue:dispatch_get_main_queue()];
     
-    [_session addOutput:dataOutput];
+    _effectiveScale = 1.0;
+
+    
+    [_session addOutput:videoDataOutput];
     [_session commitConfiguration];
     
     [_session startRunning];
@@ -279,12 +311,82 @@
     CVOpenGLESTextureCacheFlush(_videoTextureCache, 0);
 }
 
+// utility routing used during image capture to set up capture orientation
+- (AVCaptureVideoOrientation)avOrientationForDeviceOrientation:(UIDeviceOrientation)deviceOrientation
+{
+    AVCaptureVideoOrientation result = (AVCaptureVideoOrientation)deviceOrientation;
+    if ( deviceOrientation == UIDeviceOrientationLandscapeLeft )
+        result = AVCaptureVideoOrientationLandscapeRight;
+    else if ( deviceOrientation == UIDeviceOrientationLandscapeRight )
+        result = AVCaptureVideoOrientationLandscapeLeft;
+    return result;
+}
+
+// utility routine to display error aleart if takePicture fails
+- (void)displayErrorOnMainQueue:(NSError *)error withMessage:(NSString *)message
+{
+    dispatch_async(dispatch_get_main_queue(), ^(void) {
+        UIAlertView *alertView = [[UIAlertView alloc] initWithTitle:[NSString stringWithFormat:@"%@ (%d)", message, (int)[error code]]
+                                                            message:[error localizedDescription]
+                                                           delegate:nil
+                                                  cancelButtonTitle:@"Dismiss"
+                                                  otherButtonTitles:nil];
+        [alertView show];
+    });
+}
+
 /******************************************************************************/
 - (IBAction)takePicture:(id)sender
 {
-//    AVCaptureConnection *stillImageConnection = [stillImageConnection]
+    AVCaptureConnection * stillImageConnection = [_stillImageOutput connectionWithMediaType:AVMediaTypeVideo];
+    UIDeviceOrientation currentDeviceOrientation = [[UIDevice currentDevice] orientation];
+    AVCaptureVideoOrientation avCaptureOrientation = [self avOrientationForDeviceOrientation:currentDeviceOrientation];
+    
+    [stillImageConnection setVideoOrientation:avCaptureOrientation];
+    [stillImageConnection setVideoScaleAndCropFactor:_effectiveScale];
+    
+    [_stillImageOutput setOutputSettings:@{
+        AVVideoCodecKey : AVVideoCodecJPEG
+        }];
+    [_stillImageOutput captureStillImageAsynchronouslyFromConnection:stillImageConnection completionHandler:^(CMSampleBufferRef imageDataSampleBuffer, NSError * error) {
+        if (error) {
+            [self displayErrorOnMainQueue:error withMessage:@"Take picture failed"];
+        }
+        else {
+            NSData * jpegData = [AVCaptureStillImageOutput jpegStillImageNSDataRepresentation:imageDataSampleBuffer];
+            CFDictionaryRef attachments = CMCopyDictionaryOfAttachments(kCFAllocatorDefault, imageDataSampleBuffer, kCMAttachmentMode_ShouldPropagate);
+            ALAssetsLibrary * library = [ALAssetsLibrary new];
+            [library writeImageDataToSavedPhotosAlbum:jpegData metadata:(__bridge id)attachments completionBlock:^(NSURL *assetURL, NSError *error) {
+                if (error) {
+                    [self displayErrorOnMainQueue:error withMessage:@"Save to camera roll failed"];
+                }
+            }];
+            
+            if (attachments) {
+                CFRelease(attachments);
+            }
+        }
+    }];
 }
 
+/******************************************************************************/
+- (void) checkDeviceAuthorizationStatus
+{
+    NSString * mediaType = AVMediaTypeVideo;
+    
+    [AVCaptureDevice requestAccessForMediaType:mediaType completionHandler:^(BOOL granted) {
+        NSLog(granted ? @"YES" : @"NO");
+        if (granted) {
+            self.deviceAuthorized = YES;
+        }
+        else {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [[[UIAlertView alloc] initWithTitle:@"ImageFFT!" message:@"ImageFFT does not have permission to use Camera, please change privacy settings" delegate:self cancelButtonTitle:@"OK" otherButtonTitles:nil] show];
+                self.deviceAuthorized = NO;
+            });
+        }
+    }];
+}
 
 /******************************************************************************/
 
