@@ -15,6 +15,8 @@
 #import <CoreVideo/CVOpenGLESTextureCache.h>
 
 @interface ImageFFTViewController () {
+    UIView * flashView;
+
     CIContext * _CIContext;
     EAGLContext* _EAGLContext;
     CGRect _PrimaryViewerBounds;
@@ -167,7 +169,7 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
     [_session addInput:videoDeviceInput];
     
     _stillImageOutput = [AVCaptureStillImageOutput new];
-//    [_stillImageOutput addObserver:self forKeyPath:@"capturingStillImage" options:NSKeyValueObservingOptionNew context:AVCaptureStillImageIsCapturingStillImageContext];
+    [_stillImageOutput addObserver:self forKeyPath:@"capturingStillImage" options:NSKeyValueObservingOptionNew context:AVCaptureStillImageIsCapturingStillImageContext];
     [_session addOutput:_stillImageOutput];
     
     AVCaptureVideoDataOutput* videoDataOutput = [[AVCaptureVideoDataOutput alloc] init];
@@ -367,6 +369,40 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
             }
         }
     }];
+}
+
+// perform a flash bulb animation using KVO to monitor the value of the capturingStillImage property of the AVCaptureStillImageOutput class
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context
+{
+    if ( context == AVCaptureStillImageIsCapturingStillImageContext ) {
+        BOOL isCapturingStillImage = [[change objectForKey:NSKeyValueChangeNewKey] boolValue];
+        
+        if ( isCapturingStillImage ) {
+            // do flash bulb like animation
+            flashView = [[UIView alloc] initWithFrame:self.view.frame];
+            [flashView setBackgroundColor:[UIColor whiteColor]];
+            [flashView setAlpha:0.f];
+            [[[self view] window] addSubview:flashView];
+            
+            [UIView animateWithDuration:.4f
+                             animations:^{
+                                 [flashView setAlpha:1.f];
+                             }
+             ];
+        }
+        else {
+            [UIView animateWithDuration:.4f
+                             animations:^{
+                                 [flashView setAlpha:0.f];
+                             }
+                             completion:^(BOOL finished){
+                                 [flashView removeFromSuperview];
+                                 //                                 [flashView release];
+                                 flashView = nil;
+                             }
+             ];
+        }
+    }
 }
 
 /******************************************************************************/
