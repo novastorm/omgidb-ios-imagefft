@@ -81,6 +81,8 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
 - (void)viewDidLoad {
     [super viewDidLoad];
 
+    self.session = [[AVCaptureSession alloc] init];
+
     // Check for device authorization
     [self checkDeviceAuthorizationStatus];
 
@@ -152,8 +154,6 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
         NSLog(@"Error at CVOpenGLESTextureCacheCreate %d", err);
         return;
     }
-    
-    self.session = [[AVCaptureSession alloc] init];
     
     [_session beginConfiguration];
     
