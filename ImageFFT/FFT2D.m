@@ -13,13 +13,13 @@
 #import "FFT2D.h"
 
 @interface FFT2D () {
-    CGContextRef _CGBitmapContext;
+//    CGContextRef _bitmapContext;
 
     CGRect _bounds;
     UInt32 _width;
     UInt32 _height;
 
-    Pixel_8 * _bitmap;
+//    Pixel_8 * _bitmap;
     
     UInt32 _bytesPerPixel;
     UInt32 _bitsPerComponent;
@@ -46,6 +46,10 @@
     
     CIImage * _outputImage;
 }
+
+@property (nonatomic) CGContextRef bitmapContext;
+@property (nonatomic) Pixel_8 * bitmap;
+
 
 @end
 
@@ -175,10 +179,10 @@ const UInt32 originPixel = 0;
     
     _bytesPerRow = _bytesPerPixel * _width;
     
-    if (_CGBitmapContext) { CGContextRelease(_CGBitmapContext); }
-    _CGBitmapContext = CGBitmapContextCreate(_bitmap, _width, _height, _bitsPerComponent, _bytesPerRow, _colorSpace, _bitmapInfo);
+    if (_bitmapContext) { CGContextRelease(_bitmapContext); }
+    _bitmapContext = CGBitmapContextCreate(_bitmap, _width, _height, _bitsPerComponent, _bytesPerRow, _colorSpace, _bitmapInfo);
     
-    if (! _CGBitmapContext) {
+    if (! _bitmapContext) {
         NSLog(@"Could not create CGContext");
     }
 }
@@ -196,7 +200,7 @@ const UInt32 originPixel = 0;
  ******************************************************************************/
 - (void) dealloc
 {
-    CGContextRelease(_CGBitmapContext);
+    CGContextRelease(_bitmapContext);
     CGColorSpaceRelease(_colorSpace);
     
     free(_bitmap);
@@ -210,12 +214,12 @@ const UInt32 originPixel = 0;
 - (CIImage *) FFTWithCGImage:(CGImageRef)image
 {
     // draw image to bitmap context
-    CGContextDrawImage(_CGBitmapContext, _bounds, image);
+    CGContextDrawImage(_bitmapContext, _bounds, image);
     
     [self computeFFTForBitmap:_bitmap];
     
     // Create a CGImage from the pixel data in the bitmap graphics context
-    CGImageRef aCGImage = CGBitmapContextCreateImage(_CGBitmapContext);
+    CGImageRef aCGImage = CGBitmapContextCreateImage(_bitmapContext);
     
     if (aCGImage == NULL) {
         NSLog(@"Cannot create quartzImage from context");
