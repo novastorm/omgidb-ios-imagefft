@@ -174,10 +174,6 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
     
     AVCaptureVideoDataOutput* videoDataOutput = [[AVCaptureVideoDataOutput alloc] init];
     [videoDataOutput setAlwaysDiscardsLateVideoFrames:YES];
-//    [videoDataOutput setVideoSettings:[NSDictionary
-//    	dictionaryWithObject:[NSNumber numberWithInt:kCVPixelFormatType_420YpCbCr8BiPlanarFullRange]
-//        forKey:(id)kCVPixelBufferPixelFormatTypeKey]
-//        ];
     [videoDataOutput setVideoSettings:@{
         (id)kCVPixelBufferPixelFormatTypeKey : [NSNumber numberWithInt:kCVPixelFormatType_420YpCbCr8BiPlanarFullRange]
         }
@@ -198,7 +194,7 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
 {
     CGRect bounds = {0,0, 256,256};
     
-    _FFT2D = [FFT2D FFT2DWithBounds:bounds];
+    _FFT2D = [FFT2D FFT2DWithBounds:bounds context:_CIContext];
 }
 
 /******************************************************************************/
@@ -215,7 +211,7 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
 
     CIImage * image = [self imageFromSampleBuffer:sampleBuffer];
 
-    CIImage * drawImage = [_FFT2D FFTWithCIImage:image context:_CIContext];
+    CIImage * drawImage = [_FFT2D FFTWithCIImage:image];
 
     CGRect sourceRect = drawImage.extent;
     
