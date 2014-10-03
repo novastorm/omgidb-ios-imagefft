@@ -24,7 +24,7 @@
     
 //    CVOpenGLESTextureRef _lumaTexture;
 //    CVOpenGLESTextureRef _chromaTexture;
-//    
+
     NSString* _sessionPreset;
     AVCaptureStillImageOutput * _stillImageOutput;
     
@@ -33,39 +33,22 @@
     CGFloat _effectiveScale;
     
     FFT2D * _FFT2D;
-
-    size_t _FFTWidth;
-    size_t _FFTHeight;
-    Pixel_8 * _bitmap;
-
-    size_t _Log2NWidth;
-    size_t _Log2NHeight;
     
-    FFTSetup _ImageAnalysis;
-    DSPSplitComplex _DSPSplitComplex;
-//    Float32 _FFTNormalizationFactor;
-    Float32 _ScaleA;
-    Float32 _ScaleB;
-    UInt32 _FFTLength;
-    UInt32 _Log2N;
-    
-    size_t _FFTHalfWidth;
-    size_t _FFTHalfHeight;
 }
 
 @property (nonatomic) dispatch_queue_t sessionQueue; // Communicate with the session and other session objects on this queue.
+@property (nonatomic) dispatch_queue_t FFTQueue;
+
 @property (nonatomic) AVCaptureSession *session;
 @property (nonatomic, getter = isDeviceAuthorized) BOOL deviceAuthorized;
 @property (nonatomic, readonly, getter = isSessionRunningAndDeviceAuthorized) BOOL sessionRunningAndDeviceAuthorized;
+
 
 @end
 
 @implementation ImageFFTViewController
 
 static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillImageIsCapturingStillImageContext;
-
-//const Float32 kAdjust0DB = 1.5849e-13;
-//const Float32 one = 1;
 
 - (BOOL)isSessionRunningAndDeviceAuthorized
 {
