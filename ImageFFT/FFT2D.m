@@ -173,17 +173,21 @@ const UInt32 originPixel = 0;
  */
 - (void) setBitmap:(Pixel_8 *)bitmap
 {
+    [self willChangeValueForKey:@"bitmap"];
     if (_bitmap) {
         free(_bitmap);
     }
     
     _bitmap = bitmap;
+    [self didChangeValueForKey:@"bitmap"];
 }
 
 - (void) dealloc
 {
-    CGContextRelease(_bitmapContext);
-    CGColorSpaceRelease(_colorSpace);
+    CGContextRelease(self.bitmapContext);
+    self.bitmapContext = nil;
+    CGColorSpaceRelease(self.colorSpace);
+    self.colorSpace = nil;
     
     self.bitmap = nil;
     self.splitComplexBuffer = (DSPSplitComplex){};
@@ -196,10 +200,13 @@ const UInt32 originPixel = 0;
 
 - (void) setSplitComplexBuffer:(DSPSplitComplex)splitComplexBuffer
 {
+    [self willChangeValueForKey:@"splitComplexBuffer"];
+
     if (_splitComplexBuffer.realp) free(_splitComplexBuffer.realp);
     if (_splitComplexBuffer.imagp) free(_splitComplexBuffer.imagp);
     
     _splitComplexBuffer = splitComplexBuffer;
+    [self didChangeValueForKey:@"splitComplexBuffer"];
 }
 
 /**
