@@ -80,7 +80,7 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
     GLKView * view = (GLKView *)self.view;
     view.context = _EAGLContext;
     
-    self.preferredFramesPerSecond = 60;
+//    self.preferredFramesPerSecond = 60;
     
     view.contentScaleFactor = [UIScreen mainScreen].scale;
     
@@ -208,10 +208,10 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
     
     CGRect sourceRect = drawImage.extent;
     
-    [_CIContext drawImage:image inRect:_SecondaryViewerBounds fromRect:sourceRect];
-    [_CIContext drawImage:drawImage inRect:_PrimaryViewerBounds fromRect:sourceRect];
-
     dispatch_sync(dispatch_get_main_queue(), ^{
+        [_CIContext drawImage:image inRect:_SecondaryViewerBounds fromRect:sourceRect];
+        [_CIContext drawImage:drawImage inRect:_PrimaryViewerBounds fromRect:sourceRect];
+
         [(GLKView *)self.view display];
     });
     
