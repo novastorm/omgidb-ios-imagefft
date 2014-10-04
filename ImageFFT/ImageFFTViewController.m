@@ -36,7 +36,7 @@
     
 }
 
-@property (nonatomic) dispatch_queue_t sessionQueue; // Communicate with the session and other session objects on this queue.
+@property (nonatomic) dispatch_queue_t sessionQueue;
 @property (nonatomic) dispatch_queue_t FFTQueue;
 
 @property (nonatomic) AVCaptureSession *session;
@@ -100,6 +100,9 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
     _SecondaryViewerBounds.origin.y = 0.25f * view.frame.size.width;
     _SecondaryViewerBounds.size.width = view.frame.size.width;
     _SecondaryViewerBounds.size.height = view.frame.size.width;
+    
+    self.sessionQueue = dispatch_queue_create("session queue", DISPATCH_QUEUE_SERIAL);
+//    self.FFTQueue = dispatch_queue_create("FFT queue", DISPATCH_QUEUE_SERIAL);
 
     [self setupFFTAnalysis];
     [self setupGL];
@@ -127,49 +130,51 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
 /******************************************************************************/
 - (void) setupAVCapture
 {
-#if COREVIDEO_USE_EAGLCONTEXT_CLASS_IN_API
-    CVReturn err = CVOpenGLESTextureCacheCreate(kCFAllocatorDefault, NULL, _EAGLContext, NULL, &_videoTextureCache);
-#else
-    CVReturn err = CVOpenGLESTextureCacheCreate(kCFAllocatorDefault, NULL, (__bridge void *)_context, NULL, &_videoTextureCache);
-#endif
-    if (err)
-    {
-        NSLog(@"Error at CVOpenGLESTextureCacheCreate %d", err);
-        return;
-    }
-    
-    [_session beginConfiguration];
-    
-    [_session setSessionPreset:_sessionPreset];
-    
-    AVCaptureDevice* videoDevice = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo];
-    if (nil == videoDevice) assert(0);
-    
-    NSError* error;
-    AVCaptureDeviceInput* videoDeviceInput = [AVCaptureDeviceInput deviceInputWithDevice:videoDevice error:&error];
-    if (error) assert(0);
-    
-    [_session addInput:videoDeviceInput];
-    
-    _stillImageOutput = [AVCaptureStillImageOutput new];
-    [_stillImageOutput addObserver:self forKeyPath:@"capturingStillImage" options:NSKeyValueObservingOptionNew context:AVCaptureStillImageIsCapturingStillImageContext];
-    [_session addOutput:_stillImageOutput];
-    
-    AVCaptureVideoDataOutput* videoDataOutput = [[AVCaptureVideoDataOutput alloc] init];
-    [videoDataOutput setAlwaysDiscardsLateVideoFrames:YES];
-    [videoDataOutput setVideoSettings:@{
-        (id)kCVPixelBufferPixelFormatTypeKey : [NSNumber numberWithInt:kCVPixelFormatType_420YpCbCr8BiPlanarFullRange]
+    dispatch_async(self.sessionQueue, ^{
+    #if COREVIDEO_USE_EAGLCONTEXT_CLASS_IN_API
+        CVReturn err = CVOpenGLESTextureCacheCreate(kCFAllocatorDefault, NULL, _EAGLContext, NULL, &_videoTextureCache);
+    #else
+        CVReturn err = CVOpenGLESTextureCacheCreate(kCFAllocatorDefault, NULL, (__bridge void *)_context, NULL, &_videoTextureCache);
+    #endif
+        if (err)
+        {
+            NSLog(@"Error at CVOpenGLESTextureCacheCreate %d", err);
+            return;
         }
-     ];
-    [videoDataOutput setSampleBufferDelegate:self queue:dispatch_get_main_queue()];
-    
-    _effectiveScale = 1.0;
+        
+        [_session beginConfiguration];
+        
+        [_session setSessionPreset:_sessionPreset];
+        
+        AVCaptureDevice* videoDevice = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo];
+        if (nil == videoDevice) assert(0);
+        
+        NSError* error;
+        AVCaptureDeviceInput* videoDeviceInput = [AVCaptureDeviceInput deviceInputWithDevice:videoDevice error:&error];
+        if (error) assert(0);
+        
+        [_session addInput:videoDeviceInput];
+        
+        _stillImageOutput = [AVCaptureStillImageOutput new];
+        [_stillImageOutput addObserver:self forKeyPath:@"capturingStillImage" options:NSKeyValueObservingOptionNew context:AVCaptureStillImageIsCapturingStillImageContext];
+        [_session addOutput:_stillImageOutput];
+        
+        AVCaptureVideoDataOutput* videoDataOutput = [[AVCaptureVideoDataOutput alloc] init];
+        [videoDataOutput setAlwaysDiscardsLateVideoFrames:YES];
+        [videoDataOutput setVideoSettings:@{
+            (id)kCVPixelBufferPixelFormatTypeKey : [NSNumber numberWithInt:kCVPixelFormatType_420YpCbCr8BiPlanarFullRange]
+            }
+         ];
+        [videoDataOutput setSampleBufferDelegate:self queue:self.sessionQueue];
+        
+        _effectiveScale = 1.0;
 
-    
-    [_session addOutput:videoDataOutput];
-    [_session commitConfiguration];
-    
-    [_session startRunning];
+        
+        [_session addOutput:videoDataOutput];
+        [_session commitConfiguration];
+        
+        [_session startRunning];
+    });
 }
 
 /******************************************************************************/
@@ -192,16 +197,23 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
 
     [connection setVideoOrientation:AVCaptureVideoOrientationPortrait];
 
-    CIImage * image = [self imageFromSampleBuffer:sampleBuffer];
+    // Get a CMSampleBuffer's Core Video image buffer for the media data
+    CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
+    
+    CIImage * image = [CIImage imageWithCVPixelBuffer:imageBuffer];
+    
+    image = [self filterImage:image];
 
     CIImage * drawImage = [_FFT2D FFTWithCIImage:image];
-
+    
     CGRect sourceRect = drawImage.extent;
     
     [_CIContext drawImage:image inRect:_SecondaryViewerBounds fromRect:sourceRect];
     [_CIContext drawImage:drawImage inRect:_PrimaryViewerBounds fromRect:sourceRect];
-    
-    [(GLKView *)self.view display];
+
+    dispatch_sync(dispatch_get_main_queue(), ^{
+        [(GLKView *)self.view display];
+    });
     
     [self cleanUpTextures];
 }
@@ -209,13 +221,8 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
 /******************************************************************************
  Create a CIImage from sample buffer data
  ******************************************************************************/
-- (CIImage *) imageFromSampleBuffer:(CMSampleBufferRef) sampleBuffer
+- (CIImage *) filterImage:(CIImage *)image
 {
-    // Get a CMSampleBuffer's Core Video image buffer for the media data
-    CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
-
-    CIImage * image = [CIImage imageWithCVPixelBuffer:imageBuffer];
-    
     image = [self filterSquareImage:image];
     image = [self filterGrayscaleImage:image];
     image = [self filterScaleImage:image fromSize:image.extent.size.width toSize:256];
