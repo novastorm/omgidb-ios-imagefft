@@ -274,10 +274,25 @@ const UInt32 originPixel = 0;
 /******************************************************************************/
 - (void) computeFFTForBitmap:(Pixel_8 *)bitmap
 {
-    for (UInt32 i = 0; i < self.FFTLength; ++i) {
-        _splitComplexBuffer.realp[i] = (Float32)bitmap[i] / 255.0f;
-        _splitComplexBuffer.imagp[i] = 0.0;
+    size_t stride = 128;
+    dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+    
+    dispatch_apply(_FFTLength / stride, queue, ^(size_t idx) {
+        size_t i = idx * stride;
+        size_t i_stop = i + stride;
+        for (i; i < i_stop; i++) {
+//            _splitComplexBuffer.realp[i] = (Float32)bitmap[i] / 255.0f;
+            _splitComplexBuffer.realp[i] = (Float32)bitmap[i];
+        }
+    });
+    
+    size_t i;
+    for (i = _FFTLength - (_FFTLength % stride); i < _FFTLength; i++) {
+//        _splitComplexBuffer.realp[i] = (Float32)bitmap[i] / 255.0f;
+        _splitComplexBuffer.realp[i] = (Float32)bitmap[i];
     }
+    
+    vDSP_vclr(_splitComplexBuffer.imagp, 1, _FFTLength);
     
     // FFT the data
     vDSP_fft2d_zip(self.imageAnalysis, &_splitComplexBuffer, 1, 0, self.log2NWidth, self.log2NHeight, kFFTDirection_Forward);
