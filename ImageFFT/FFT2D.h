@@ -11,16 +11,18 @@
 @interface FFT2D : NSObject
 
 + (instancetype) FFT2DWithBounds:(CGRect)bounds;
-+ (instancetype) FFT2DWithImage:(CIImage *)image;
++ (instancetype) FFT2DWithBounds:(CGRect)bounds context:(CIContext *)context;
 
-- (id) init;
-- (id) initWithBounds:(CGRect)bounds;
-- (id) initWithImage:(CIImage *)image;
+- (instancetype) init;
+- (instancetype) initWithBounds:(CGRect)bounds;
+- (instancetype) initWithBounds:(CGRect)bounds context:(CIContext *)context;
 
-- (void) reinitWithBounds:(CGRect)bounds;
-- (void) reinitWithImage:(CIImage *)image;
+@property (nonatomic) CIContext * context;
+@property CGRect bounds;
 
 - (CIImage *) FFTWithCGImage:(CGImageRef)image;
+
+- (CIImage *) FFTWithCIImage:(CIImage *)image;
 - (CIImage *) FFTWithCIImage:(CIImage *)image context:(CIContext *)context;
 
 @end
