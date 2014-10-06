@@ -51,6 +51,8 @@
 
 const Float32 kAdjust0DB = 1.5849e-13;
 const Float32 one = 1;
+const Float32 min = 0.0f;
+const Float32 max = 255.0f;
 const UInt32 originPixel = 0;
 
 /******************************************************************************/
@@ -274,41 +276,23 @@ const UInt32 originPixel = 0;
 /******************************************************************************/
 - (void) computeFFTForBitmap:(Pixel_8 *)bitmap
 {
-    size_t stride = 128;
-    dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
-    
-    dispatch_apply(_FFTLength / stride, queue, ^(size_t idx) {
-        size_t i = idx * stride;
-        size_t i_stop = i + stride;
-        for (i; i < i_stop; i++) {
-//            _splitComplexBuffer.realp[i] = (Float32)bitmap[i] / 255.0f;
-            _splitComplexBuffer.realp[i] = (Float32)bitmap[i];
-        }
-    });
-    
-    size_t i;
-    for (i = _FFTLength - (_FFTLength % stride); i < _FFTLength; i++) {
-//        _splitComplexBuffer.realp[i] = (Float32)bitmap[i] / 255.0f;
-        _splitComplexBuffer.realp[i] = (Float32)bitmap[i];
-    }
-    
+    vDSP_vfltu8(bitmap, 1, _splitComplexBuffer.realp, 1, _FFTLength);
+    vDSP_vsdiv(_splitComplexBuffer.realp, 1, &max, _splitComplexBuffer.realp, 1, _FFTLength);
     vDSP_vclr(_splitComplexBuffer.imagp, 1, _FFTLength);
     
     // FFT the data
     vDSP_fft2d_zip(self.imageAnalysis, &_splitComplexBuffer, 1, 0, self.log2NWidth, self.log2NHeight, kFFTDirection_Forward);
 
-    // Get the magnitudes
-    vDSP_zvmags(&_splitComplexBuffer, 1, _splitComplexBuffer.realp, 1, self.FFTLength);
+    // Get the absolute value
+    vDSP_zvabs(&_splitComplexBuffer, 1, _splitComplexBuffer.realp, 1, self.FFTLength);
     
     // scale the magnitudes
-    vDSP_vsmul(_splitComplexBuffer.realp, 1, &_scale, _splitComplexBuffer.realp, 1, self.FFTLength);
+//    vDSP_vsmul(_splitComplexBuffer.realp, 1, &_scale, _splitComplexBuffer.realp, 1, self.FFTLength);
     
     // convert to log scale
     vDSP_vdbcon(_splitComplexBuffer.realp, 1, &one, _splitComplexBuffer.realp, 1, self.FFTLength, 1);
-    
-    float min = 0.9f;
-    float max = 255.0f;
-    
+
+    // clip to range
     vDSP_vclip(_splitComplexBuffer.realp, 1, &min, &max, _splitComplexBuffer.realp, 1, self.FFTLength);
     
     // swap quadrants
