@@ -148,17 +148,17 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
         
         AVCaptureDevice* videoDevice = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo];
         if (nil == videoDevice) assert(0);
-        
         NSError* error;
         AVCaptureDeviceInput* videoDeviceInput = [AVCaptureDeviceInput deviceInputWithDevice:videoDevice error:&error];
         if (error) assert(0);
-        
         [_session addInput:videoDeviceInput];
         
+
         _stillImageOutput = [AVCaptureStillImageOutput new];
         [_stillImageOutput addObserver:self forKeyPath:@"capturingStillImage" options:NSKeyValueObservingOptionNew context:AVCaptureStillImageIsCapturingStillImageContext];
         [_session addOutput:_stillImageOutput];
         
+
         AVCaptureVideoDataOutput* videoDataOutput = [[AVCaptureVideoDataOutput alloc] init];
         [videoDataOutput setAlwaysDiscardsLateVideoFrames:YES];
         [videoDataOutput setVideoSettings:@{
@@ -166,11 +166,10 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
             }
          ];
         [videoDataOutput setSampleBufferDelegate:self queue:self.sessionQueue];
-        
+        [_session addOutput:videoDataOutput];
+
         _effectiveScale = 1.0;
 
-        
-        [_session addOutput:videoDataOutput];
         [_session commitConfiguration];
         
         [_session startRunning];
@@ -208,7 +207,7 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
     
     CGRect sourceRect = drawImage.extent;
     
-    dispatch_sync(dispatch_get_main_queue(), ^{
+    dispatch_async(dispatch_get_main_queue(), ^{
         [_CIContext drawImage:image inRect:_SecondaryViewerBounds fromRect:sourceRect];
         [_CIContext drawImage:drawImage inRect:_PrimaryViewerBounds fromRect:sourceRect];
 
