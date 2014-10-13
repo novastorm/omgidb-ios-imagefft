@@ -22,9 +22,6 @@
     CGRect _PrimaryViewerBounds;
     CGRect _SecondaryViewerBounds;
     
-//    CVOpenGLESTextureRef _lumaTexture;
-//    CVOpenGLESTextureRef _chromaTexture;
-
     NSString* _sessionPreset;
     
     CVOpenGLESTextureCacheRef _videoTextureCache;
@@ -61,7 +58,6 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
     return [NSSet setWithObjects:@"session.running", @"deviceAuthorized", nil];
 }
 
-/******************************************************************************/
 - (void)viewDidLoad {
     [super viewDidLoad];
 
@@ -118,18 +114,13 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
 
 - (void)didReceiveMemoryWarning {
     [super didReceiveMemoryWarning];
-    // Dispose of any resources that can be recreated.
 }
 
-/******************************************************************************/
 - (void) setupGL
 {
     [EAGLContext setCurrentContext:_EAGLContext];
-    
-//    [self loadShaders];
 }
 
-/******************************************************************************/
 - (void) setupAVCapture
 {
     dispatch_async(self.sessionQueue, ^{
@@ -178,7 +169,6 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
     });
 }
 
-/******************************************************************************/
 - (void) setupFFTAnalysis
 {
     CGRect bounds = {0,0, 256,256};
@@ -186,7 +176,6 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
     _FFT2D = [FFT2D FFT2DWithBounds:bounds context:_CIContext];
 }
 
-/******************************************************************************/
 - (void) captureOutput:(AVCaptureOutput *)captureOutput
 	didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
 	fromConnection:(AVCaptureConnection *)connection
@@ -219,9 +208,9 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
     [self cleanUpTextures];
 }
 
-/******************************************************************************
+/**
  Create a CIImage from sample buffer data
- ******************************************************************************/
+ */
 - (CIImage *) filterImage:(CIImage *)image
 {
     image = [self filterSquareImage:image];
@@ -231,9 +220,6 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
     return image;
 }
 
-/******************************************************************************
- Create a Square CIImage from input CIImage
- ******************************************************************************/
 - (CIImage *) filterSquareImage:(CIImage *)inImage
 {
 
@@ -257,9 +243,6 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
         , nil].outputImage;
 }
 
-/******************************************************************************
- grayscale the image
- ******************************************************************************/
 - (CIImage *) filterGrayscaleImage:(CIImage *)inImage
 {
     return [CIFilter filterWithName:@"CIMaximumComponent"
@@ -269,9 +252,6 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
         ].outputImage;
 }
 
-/******************************************************************************
- Scale input CIImage
- ******************************************************************************/
 - (CIImage *) filterScaleImage:(CIImage *)inImage fromSize:(Float32)fromSize toSize:(Float32)toSize
 {
     Float32 scale = toSize / fromSize;
@@ -284,19 +264,9 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
                ].outputImage;
 }
 
-///******************************************************************************/
+
 - (void) cleanUpTextures
 {
-//    if (_lumaTexture) {
-//        CFRelease(_lumaTexture);
-//        _lumaTexture = NULL;
-//    }
-//    
-//    if (_chromaTexture) {
-//        CFRelease(_chromaTexture);
-//        _chromaTexture = NULL;
-//    }
-    
     CVOpenGLESTextureCacheFlush(_videoTextureCache, 0);
 }
 
@@ -324,7 +294,6 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
     });
 }
 
-/******************************************************************************/
 - (IBAction)takePicture:(id)sender
 {
     AVCaptureConnection * stillImageConnection = [self.stillImageOutput connectionWithMediaType:AVMediaTypeVideo];
@@ -392,7 +361,6 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
     }
 }
 
-/******************************************************************************/
 - (void) checkDeviceAuthorizationStatus
 {
     NSString * mediaType = AVMediaTypeVideo;
@@ -410,8 +378,6 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
         }
     }];
 }
-
-/******************************************************************************/
 
 
 @end
