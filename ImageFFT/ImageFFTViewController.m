@@ -27,9 +27,6 @@
     CVOpenGLESTextureCacheRef _videoTextureCache;
     
     CGFloat _effectiveScale;
-    
-    FFT2D * _FFT2D;
-    
 }
 
 @property (nonatomic) dispatch_queue_t sessionQueue;
@@ -41,6 +38,7 @@
 @property (nonatomic, getter = isDeviceAuthorized) BOOL deviceAuthorized;
 @property (nonatomic, readonly, getter = isSessionRunningAndDeviceAuthorized) BOOL sessionRunningAndDeviceAuthorized;
 
+@property FFT2D * aFFT2D;
 
 @end
 
@@ -173,7 +171,7 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
 {
     CGRect bounds = {0,0, 256,256};
     
-    _FFT2D = [FFT2D FFT2DWithBounds:bounds context:_CIContext];
+    self.aFFT2D = [FFT2D FFT2DWithBounds:bounds context:_CIContext];
 }
 
 - (void) captureOutput:(AVCaptureOutput *)captureOutput
@@ -194,7 +192,7 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
     
     image = [self filterImage:image];
 
-    CIImage * drawImage = [_FFT2D FFTWithCIImage:image];
+    CIImage * drawImage = [self.aFFT2D FFTWithCIImage:image];
     
     CGRect sourceRect = drawImage.extent;
     
