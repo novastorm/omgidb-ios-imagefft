@@ -26,7 +26,6 @@
 //    CVOpenGLESTextureRef _chromaTexture;
 
     NSString* _sessionPreset;
-    AVCaptureStillImageOutput * _stillImageOutput;
     
     CVOpenGLESTextureCacheRef _videoTextureCache;
     
@@ -38,6 +37,8 @@
 
 @property (nonatomic) dispatch_queue_t sessionQueue;
 @property (nonatomic) dispatch_queue_t FFTQueue;
+
+@property AVCaptureStillImageOutput * stillImageOutput;
 
 @property (nonatomic) AVCaptureSession *session;
 @property (nonatomic, getter = isDeviceAuthorized) BOOL deviceAuthorized;
@@ -104,6 +105,7 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
     self.sessionQueue = dispatch_queue_create("session queue", DISPATCH_QUEUE_SERIAL);
 //    self.FFTQueue = dispatch_queue_create("FFT queue", DISPATCH_QUEUE_SERIAL);
 
+
     [self setupFFTAnalysis];
     [self setupGL];
     [self setupAVCapture];
@@ -154,9 +156,9 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
         [_session addInput:videoDeviceInput];
         
 
-        _stillImageOutput = [AVCaptureStillImageOutput new];
-        [_stillImageOutput addObserver:self forKeyPath:@"capturingStillImage" options:NSKeyValueObservingOptionNew context:AVCaptureStillImageIsCapturingStillImageContext];
-        [_session addOutput:_stillImageOutput];
+        self.stillImageOutput = [AVCaptureStillImageOutput new];
+        [self.stillImageOutput addObserver:self forKeyPath:@"capturingStillImage" options:NSKeyValueObservingOptionNew context:AVCaptureStillImageIsCapturingStillImageContext];
+        [_session addOutput:self.stillImageOutput];
         
 
         AVCaptureVideoDataOutput* videoDataOutput = [[AVCaptureVideoDataOutput alloc] init];
@@ -325,17 +327,17 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
 /******************************************************************************/
 - (IBAction)takePicture:(id)sender
 {
-    AVCaptureConnection * stillImageConnection = [_stillImageOutput connectionWithMediaType:AVMediaTypeVideo];
+    AVCaptureConnection * stillImageConnection = [self.stillImageOutput connectionWithMediaType:AVMediaTypeVideo];
     UIDeviceOrientation currentDeviceOrientation = [[UIDevice currentDevice] orientation];
     AVCaptureVideoOrientation avCaptureOrientation = [self avOrientationForDeviceOrientation:currentDeviceOrientation];
     
     [stillImageConnection setVideoOrientation:avCaptureOrientation];
     [stillImageConnection setVideoScaleAndCropFactor:_effectiveScale];
     
-    [_stillImageOutput setOutputSettings:@{
+    [self.stillImageOutput setOutputSettings:@{
         AVVideoCodecKey : AVVideoCodecJPEG
         }];
-    [_stillImageOutput captureStillImageAsynchronouslyFromConnection:stillImageConnection completionHandler:^(CMSampleBufferRef imageDataSampleBuffer, NSError * error) {
+    [self.stillImageOutput captureStillImageAsynchronouslyFromConnection:stillImageConnection completionHandler:^(CMSampleBufferRef imageDataSampleBuffer, NSError * error) {
         if (error) {
             [self displayErrorOnMainQueue:error withMessage:@"Take picture failed"];
         }
