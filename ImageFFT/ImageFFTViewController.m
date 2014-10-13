@@ -32,11 +32,11 @@
 @property (nonatomic) dispatch_queue_t sessionQueue;
 @property (nonatomic) dispatch_queue_t FFTQueue;
 
-@property AVCaptureStillImageOutput * stillImageOutput;
-
 @property (nonatomic) AVCaptureSession *session;
 @property (nonatomic, getter = isDeviceAuthorized) BOOL deviceAuthorized;
 @property (nonatomic, readonly, getter = isSessionRunningAndDeviceAuthorized) BOOL sessionRunningAndDeviceAuthorized;
+
+@property AVCaptureStillImageOutput * stillImageOutput;
 
 @property FFT2D * aFFT2D;
 
