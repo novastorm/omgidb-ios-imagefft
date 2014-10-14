@@ -15,7 +15,7 @@
 #import <CoreVideo/CVOpenGLESTextureCache.h>
 
 @interface ImageFFTViewController () {
-    UIView * flashView;
+    UIView * _flashView;
 
     CIContext * _CIContext;
     EAGLContext* _EAGLContext;
@@ -91,7 +91,7 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
         , width
     };
     
-    secondaryViewerBounds = (CGRect){
+    self.secondaryViewerBounds = (CGRect){
         0.5f * view.frame.size.width
         , 0.25f * view.frame.size.width
         , view.frame.size.width
@@ -333,26 +333,26 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
         
         if ( isCapturingStillImage ) {
             // do flash bulb like animation
-            flashView = [[UIView alloc] initWithFrame:self.view.frame];
-            [flashView setBackgroundColor:[UIColor whiteColor]];
-            [flashView setAlpha:0.f];
-            [[[self view] window] addSubview:flashView];
+            _flashView = [[UIView alloc] initWithFrame:self.view.frame];
+            [_flashView setBackgroundColor:[UIColor whiteColor]];
+            [_flashView setAlpha:0.f];
+            [[[self view] window] addSubview:_flashView];
             
             [UIView animateWithDuration:.4f
                              animations:^{
-                                 [flashView setAlpha:1.f];
+                                 [_flashView setAlpha:1.f];
                              }
              ];
         }
         else {
             [UIView animateWithDuration:.4f
                              animations:^{
-                                 [flashView setAlpha:0.f];
+                                 [_flashView setAlpha:0.f];
                              }
                              completion:^(BOOL finished){
-                                 [flashView removeFromSuperview];
+                                 [_flashView removeFromSuperview];
                                  //                                 [flashView release];
-                                 flashView = nil;
+                                 _flashView = nil;
                              }
              ];
         }
