@@ -19,8 +19,6 @@
 
     CIContext * _CIContext;
     EAGLContext* _EAGLContext;
-    CGRect _PrimaryViewerBounds;
-    CGRect _SecondaryViewerBounds;
     
     NSString* _sessionPreset;
     
@@ -38,6 +36,8 @@
 
 @property AVCaptureStillImageOutput * stillImageOutput;
 
+@property CGRect primaryViewerBounds;
+@property CGRect secondaryViewerBounds;
 @property FFT2D * aFFT2D;
 
 @end
@@ -84,21 +84,21 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
     CGFloat width = view.frame.size.width * view.contentScaleFactor;
     CGFloat height = view.frame.size.height * view.contentScaleFactor;
     
-    _PrimaryViewerBounds = CGRectZero;
-    _PrimaryViewerBounds.origin.x = 0;
-    _PrimaryViewerBounds.origin.y = height - width;
-    _PrimaryViewerBounds.size.width = width;
-    _PrimaryViewerBounds.size.height = width;
+    self.primaryViewerBounds = (CGRect){
+        0
+        , height - width
+        , width
+        , width
+    };
     
-    _SecondaryViewerBounds = CGRectZero;
-    _SecondaryViewerBounds.origin.x = 0.5f * view.frame.size.width;
-    _SecondaryViewerBounds.origin.y = 0.25f * view.frame.size.width;
-    _SecondaryViewerBounds.size.width = view.frame.size.width;
-    _SecondaryViewerBounds.size.height = view.frame.size.width;
+    secondaryViewerBounds = (CGRect){
+        0.5f * view.frame.size.width
+        , 0.25f * view.frame.size.width
+        , view.frame.size.width
+        , view.frame.size.width
+    };
     
     self.sessionQueue = dispatch_queue_create("session queue", DISPATCH_QUEUE_SERIAL);
-//    self.FFTQueue = dispatch_queue_create("FFT queue", DISPATCH_QUEUE_SERIAL);
-
 
     [self setupFFTAnalysis];
     [self setupGL];
@@ -197,8 +197,8 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
     CGRect sourceRect = drawImage.extent;
     
     dispatch_async(dispatch_get_main_queue(), ^{
-        [_CIContext drawImage:image inRect:_SecondaryViewerBounds fromRect:sourceRect];
-        [_CIContext drawImage:drawImage inRect:_PrimaryViewerBounds fromRect:sourceRect];
+        [_CIContext drawImage:image inRect:self.secondaryViewerBounds fromRect:sourceRect];
+        [_CIContext drawImage:drawImage inRect:self.primaryViewerBounds fromRect:sourceRect];
 
         [(GLKView *)self.view display];
     });
