@@ -302,27 +302,50 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
     [stillImageConnection setVideoScaleAndCropFactor:_effectiveScale];
     
     [self.stillImageOutput setOutputSettings:@{
-        AVVideoCodecKey : AVVideoCodecJPEG
+//        AVVideoCodecKey : AVVideoCodecJPEG
+        (id)kCVPixelBufferPixelFormatTypeKey : [NSNumber numberWithInt:kCVPixelFormatType_420YpCbCr8BiPlanarFullRange]
         }];
     [self.stillImageOutput captureStillImageAsynchronouslyFromConnection:stillImageConnection completionHandler:^(CMSampleBufferRef imageDataSampleBuffer, NSError * error) {
         if (error) {
             [self displayErrorOnMainQueue:error withMessage:@"Take picture failed"];
         }
         else {
-            NSData * jpegData = [AVCaptureStillImageOutput jpegStillImageNSDataRepresentation:imageDataSampleBuffer];
-            CFDictionaryRef attachments = CMCopyDictionaryOfAttachments(kCFAllocatorDefault, imageDataSampleBuffer, kCMAttachmentMode_ShouldPropagate);
-            ALAssetsLibrary * library = [ALAssetsLibrary new];
-            [library writeImageDataToSavedPhotosAlbum:jpegData metadata:(__bridge id)attachments completionBlock:^(NSURL *assetURL, NSError *error) {
-                if (error) {
-                    [self displayErrorOnMainQueue:error withMessage:@"Save to camera roll failed"];
-                }
-            }];
-            
-            if (attachments) {
-                CFRelease(attachments);
+            CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(imageDataSampleBuffer);
+            if (! imageBuffer) {
+                NSLog(@"Unable to get imageBuffer from data sample");
             }
+
+            CFDictionaryRef attachments = CMCopyDictionaryOfAttachments(kCFAllocatorDefault, imageDataSampleBuffer, kCMAttachmentMode_ShouldPropagate);
+
+            CIImage * image = [CIImage imageWithCVPixelBuffer:imageBuffer options:(__bridge NSDictionary *)attachments];
+
+            image = [self filterImage:image];
+
+            CGImageRef aCGImage = [_CIContext createCGImage:image fromRect:image.extent];
+
+            if (! aCGImage) {
+                NSLog(@"cannot get a CGImage from image");
+            }
+
+            UIImage * imageToSave = [UIImage imageWithCGImage:aCGImage];
+            
+            dispatch_async(dispatch_get_main_queue(), ^{
+                UIImageWriteToSavedPhotosAlbum(imageToSave, self, @selector(image:didFinishSavingWithError:contextInfo:), nil);
+            });
+
+            CGImageRelease(aCGImage);
+            
+            if (attachments) CFRelease(attachments);
         }
     }];
+}
+
+- (void)image:(UIImage *)image didFinishSavingWithError:(NSError *)error contextInfo: (void *) contextInfo
+{
+    
+    if (error) {
+        [self displayErrorOnMainQueue:error withMessage:@"Save to camera roll failed"];
+    }
 }
 
 // perform a flash bulb animation using KVO to monitor the value of the capturingStillImage property of the AVCaptureStillImageOutput class
