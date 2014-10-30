@@ -276,6 +276,24 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
         result = AVCaptureVideoOrientationLandscapeRight;
     else if ( deviceOrientation == UIDeviceOrientationLandscapeRight )
         result = AVCaptureVideoOrientationLandscapeLeft;
+    else if ( deviceOrientation == UIDeviceOrientationPortraitUpsideDown)
+        result = AVCaptureVideoOrientationPortraitUpsideDown;
+    else
+        result = AVCaptureVideoOrientationPortrait;
+    return result;
+}
+
+- (UIImageOrientation)uiOrientationForDeviceOrientation:(UIDeviceOrientation)deviceOrientation
+{
+    UIImageOrientation result = (UIImageOrientation)deviceOrientation;
+    if ( deviceOrientation == UIDeviceOrientationLandscapeLeft )
+        result = UIImageOrientationUp;
+    else if ( deviceOrientation == UIDeviceOrientationLandscapeRight )
+        result = UIImageOrientationDown;
+    else if ( deviceOrientation == UIDeviceOrientationPortraitUpsideDown)
+        result = UIImageOrientationLeft;
+    else // UIDeviceOrientationPortraitUp
+        result = UIImageOrientationRight;
     return result;
 }
 
@@ -296,10 +314,10 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
 {
     AVCaptureConnection * stillImageConnection = [self.stillImageOutput connectionWithMediaType:AVMediaTypeVideo];
     UIDeviceOrientation currentDeviceOrientation = [[UIDevice currentDevice] orientation];
-    AVCaptureVideoOrientation avCaptureOrientation = [self avOrientationForDeviceOrientation:currentDeviceOrientation];
-    
-    [stillImageConnection setVideoOrientation:avCaptureOrientation];
-    [stillImageConnection setVideoScaleAndCropFactor:_effectiveScale];
+//    AVCaptureVideoOrientation avCaptureOrientation = [self avOrientationForDeviceOrientation:currentDeviceOrientation];
+//    
+//    [stillImageConnection setVideoOrientation:avCaptureOrientation];
+//    [stillImageConnection setVideoScaleAndCropFactor:_effectiveScale];
     
     [self.stillImageOutput setOutputSettings:@{
 //        AVVideoCodecKey : AVVideoCodecJPEG
@@ -327,14 +345,14 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
                 NSLog(@"cannot get a CGImage from image");
             }
 
-            UIImage * imageToSave = [UIImage imageWithCGImage:aCGImage];
+            UIImage * imageToSave = [UIImage imageWithCGImage:aCGImage scale:1.0f orientation:[self uiOrientationForDeviceOrientation:currentDeviceOrientation]];
             
             dispatch_async(dispatch_get_main_queue(), ^{
                 UIImageWriteToSavedPhotosAlbum(imageToSave, self, @selector(image:didFinishSavingWithError:contextInfo:), nil);
             });
 
             CGImageRelease(aCGImage);
-            
+
             if (attachments) CFRelease(attachments);
         }
     }];
