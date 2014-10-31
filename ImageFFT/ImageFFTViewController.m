@@ -341,7 +341,7 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
 
             CIImage * image = [CIImage imageWithCVPixelBuffer:imageBuffer options:(__bridge NSDictionary *)attachments];
             
-            image = [self filterRotateImage90CW:image];
+            image = [self filterRotateImage90CW:image]; // rotate image to match video portrait orientation
             image = [self filterImage:image];
 
             CGImageRef aCGImage = [_CIContext createCGImage:image fromRect:image.extent];
