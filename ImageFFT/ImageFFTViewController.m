@@ -15,25 +15,16 @@
 #import <CoreVideo/CVOpenGLESTextureCache.h>
 
 @interface ImageFFTViewController () {
-    UIView * flashView;
+    UIView * _flashView;
 
     CIContext * _CIContext;
     EAGLContext* _EAGLContext;
-    CGRect _PrimaryViewerBounds;
-    CGRect _SecondaryViewerBounds;
     
-//    CVOpenGLESTextureRef _lumaTexture;
-//    CVOpenGLESTextureRef _chromaTexture;
-
     NSString* _sessionPreset;
-    AVCaptureStillImageOutput * _stillImageOutput;
     
     CVOpenGLESTextureCacheRef _videoTextureCache;
     
     CGFloat _effectiveScale;
-    
-    FFT2D * _FFT2D;
-    
 }
 
 @property (nonatomic) dispatch_queue_t sessionQueue;
@@ -43,6 +34,11 @@
 @property (nonatomic, getter = isDeviceAuthorized) BOOL deviceAuthorized;
 @property (nonatomic, readonly, getter = isSessionRunningAndDeviceAuthorized) BOOL sessionRunningAndDeviceAuthorized;
 
+@property AVCaptureStillImageOutput * stillImageOutput;
+
+@property CGRect primaryViewerBounds;
+@property CGRect secondaryViewerBounds;
+@property FFT2D * aFFT2D;
 
 @end
 
@@ -60,7 +56,6 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
     return [NSSet setWithObjects:@"session.running", @"deviceAuthorized", nil];
 }
 
-/******************************************************************************/
 - (void)viewDidLoad {
     [super viewDidLoad];
 
@@ -89,20 +84,21 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
     CGFloat width = view.frame.size.width * view.contentScaleFactor;
     CGFloat height = view.frame.size.height * view.contentScaleFactor;
     
-    _PrimaryViewerBounds = CGRectZero;
-    _PrimaryViewerBounds.origin.x = 0;
-    _PrimaryViewerBounds.origin.y = height - width;
-    _PrimaryViewerBounds.size.width = width;
-    _PrimaryViewerBounds.size.height = width;
+    self.primaryViewerBounds = (CGRect){
+        0
+        , height - width
+        , width
+        , width
+    };
     
-    _SecondaryViewerBounds = CGRectZero;
-    _SecondaryViewerBounds.origin.x = 0.5f * view.frame.size.width;
-    _SecondaryViewerBounds.origin.y = 0.25f * view.frame.size.width;
-    _SecondaryViewerBounds.size.width = view.frame.size.width;
-    _SecondaryViewerBounds.size.height = view.frame.size.width;
+    self.secondaryViewerBounds = (CGRect){
+        0.5f * view.frame.size.width
+        , 0.25f * view.frame.size.width
+        , view.frame.size.width
+        , view.frame.size.width
+    };
     
     self.sessionQueue = dispatch_queue_create("session queue", DISPATCH_QUEUE_SERIAL);
-//    self.FFTQueue = dispatch_queue_create("FFT queue", DISPATCH_QUEUE_SERIAL);
 
     [self setupFFTAnalysis];
     [self setupGL];
@@ -116,18 +112,13 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
 
 - (void)didReceiveMemoryWarning {
     [super didReceiveMemoryWarning];
-    // Dispose of any resources that can be recreated.
 }
 
-/******************************************************************************/
 - (void) setupGL
 {
     [EAGLContext setCurrentContext:_EAGLContext];
-    
-//    [self loadShaders];
 }
 
-/******************************************************************************/
 - (void) setupAVCapture
 {
     dispatch_async(self.sessionQueue, ^{
@@ -148,17 +139,17 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
         
         AVCaptureDevice* videoDevice = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo];
         if (nil == videoDevice) assert(0);
-        
         NSError* error;
         AVCaptureDeviceInput* videoDeviceInput = [AVCaptureDeviceInput deviceInputWithDevice:videoDevice error:&error];
         if (error) assert(0);
-        
         [_session addInput:videoDeviceInput];
         
-        _stillImageOutput = [AVCaptureStillImageOutput new];
-        [_stillImageOutput addObserver:self forKeyPath:@"capturingStillImage" options:NSKeyValueObservingOptionNew context:AVCaptureStillImageIsCapturingStillImageContext];
-        [_session addOutput:_stillImageOutput];
+
+        self.stillImageOutput = [AVCaptureStillImageOutput new];
+        [self.stillImageOutput addObserver:self forKeyPath:@"capturingStillImage" options:NSKeyValueObservingOptionNew context:AVCaptureStillImageIsCapturingStillImageContext];
+        [_session addOutput:self.stillImageOutput];
         
+
         AVCaptureVideoDataOutput* videoDataOutput = [[AVCaptureVideoDataOutput alloc] init];
         [videoDataOutput setAlwaysDiscardsLateVideoFrames:YES];
         [videoDataOutput setVideoSettings:@{
@@ -166,26 +157,23 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
             }
          ];
         [videoDataOutput setSampleBufferDelegate:self queue:self.sessionQueue];
-        
+        [_session addOutput:videoDataOutput];
+
         _effectiveScale = 1.0;
 
-        
-        [_session addOutput:videoDataOutput];
         [_session commitConfiguration];
         
         [_session startRunning];
     });
 }
 
-/******************************************************************************/
 - (void) setupFFTAnalysis
 {
     CGRect bounds = {0,0, 256,256};
     
-    _FFT2D = [FFT2D FFT2DWithBounds:bounds context:_CIContext];
+    self.aFFT2D = [FFT2D FFT2DWithBounds:bounds context:_CIContext];
 }
 
-/******************************************************************************/
 - (void) captureOutput:(AVCaptureOutput *)captureOutput
 	didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
 	fromConnection:(AVCaptureConnection *)connection
@@ -204,13 +192,13 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
     
     image = [self filterImage:image];
 
-    CIImage * drawImage = [_FFT2D FFTWithCIImage:image];
+    CIImage * drawImage = [self.aFFT2D FFTWithCIImage:image];
     
     CGRect sourceRect = drawImage.extent;
     
-    dispatch_sync(dispatch_get_main_queue(), ^{
-        [_CIContext drawImage:image inRect:_SecondaryViewerBounds fromRect:sourceRect];
-        [_CIContext drawImage:drawImage inRect:_PrimaryViewerBounds fromRect:sourceRect];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [_CIContext drawImage:image inRect:self.secondaryViewerBounds fromRect:sourceRect];
+        [_CIContext drawImage:drawImage inRect:self.primaryViewerBounds fromRect:sourceRect];
 
         [(GLKView *)self.view display];
     });
@@ -218,9 +206,9 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
     [self cleanUpTextures];
 }
 
-/******************************************************************************
+/**
  Create a CIImage from sample buffer data
- ******************************************************************************/
+ */
 - (CIImage *) filterImage:(CIImage *)image
 {
     image = [self filterSquareImage:image];
@@ -230,9 +218,6 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
     return image;
 }
 
-/******************************************************************************
- Create a Square CIImage from input CIImage
- ******************************************************************************/
 - (CIImage *) filterSquareImage:(CIImage *)inImage
 {
 
@@ -256,9 +241,6 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
         , nil].outputImage;
 }
 
-/******************************************************************************
- grayscale the image
- ******************************************************************************/
 - (CIImage *) filterGrayscaleImage:(CIImage *)inImage
 {
     return [CIFilter filterWithName:@"CIMaximumComponent"
@@ -268,9 +250,6 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
         ].outputImage;
 }
 
-/******************************************************************************
- Scale input CIImage
- ******************************************************************************/
 - (CIImage *) filterScaleImage:(CIImage *)inImage fromSize:(Float32)fromSize toSize:(Float32)toSize
 {
     Float32 scale = toSize / fromSize;
@@ -283,19 +262,18 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
                ].outputImage;
 }
 
-///******************************************************************************/
+- (CIImage *) filterRotateImage:(CIImage *)inImage withDegree:(CGFloat)degree
+{
+    return [inImage imageByApplyingTransform:CGAffineTransformMakeRotation(GLKMathDegreesToRadians(degree))];
+}
+
+- (CIImage *) filterRotateImage90CW:(CIImage *)inImage
+{
+    return [self filterRotateImage:inImage withDegree:-90.0f];
+}
+
 - (void) cleanUpTextures
 {
-//    if (_lumaTexture) {
-//        CFRelease(_lumaTexture);
-//        _lumaTexture = NULL;
-//    }
-//    
-//    if (_chromaTexture) {
-//        CFRelease(_chromaTexture);
-//        _chromaTexture = NULL;
-//    }
-    
     CVOpenGLESTextureCacheFlush(_videoTextureCache, 0);
 }
 
@@ -307,6 +285,24 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
         result = AVCaptureVideoOrientationLandscapeRight;
     else if ( deviceOrientation == UIDeviceOrientationLandscapeRight )
         result = AVCaptureVideoOrientationLandscapeLeft;
+    else if ( deviceOrientation == UIDeviceOrientationPortraitUpsideDown)
+        result = AVCaptureVideoOrientationPortraitUpsideDown;
+    else
+        result = AVCaptureVideoOrientationPortrait;
+    return result;
+}
+
+- (UIImageOrientation)uiOrientationForDeviceOrientation:(UIDeviceOrientation)deviceOrientation
+{
+    UIImageOrientation result = (UIImageOrientation)deviceOrientation;
+    if ( deviceOrientation == UIDeviceOrientationLandscapeLeft )
+        result = UIImageOrientationLeft;
+    else if ( deviceOrientation == UIDeviceOrientationLandscapeRight )
+        result = UIImageOrientationRight;
+    else if ( deviceOrientation == UIDeviceOrientationPortraitUpsideDown)
+        result = UIImageOrientationDown;
+    else // UIDeviceOrientationPortraitUp
+        result = UIImageOrientationUp;
     return result;
 }
 
@@ -323,38 +319,56 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
     });
 }
 
-/******************************************************************************/
 - (IBAction)takePicture:(id)sender
 {
-    AVCaptureConnection * stillImageConnection = [_stillImageOutput connectionWithMediaType:AVMediaTypeVideo];
+    AVCaptureConnection * stillImageConnection = [self.stillImageOutput connectionWithMediaType:AVMediaTypeVideo];
     UIDeviceOrientation currentDeviceOrientation = [[UIDevice currentDevice] orientation];
-    AVCaptureVideoOrientation avCaptureOrientation = [self avOrientationForDeviceOrientation:currentDeviceOrientation];
     
-    [stillImageConnection setVideoOrientation:avCaptureOrientation];
-    [stillImageConnection setVideoScaleAndCropFactor:_effectiveScale];
-    
-    [_stillImageOutput setOutputSettings:@{
-        AVVideoCodecKey : AVVideoCodecJPEG
+    [self.stillImageOutput setOutputSettings:@{
+        (id)kCVPixelBufferPixelFormatTypeKey : [NSNumber numberWithInt:kCVPixelFormatType_420YpCbCr8BiPlanarFullRange]
         }];
-    [_stillImageOutput captureStillImageAsynchronouslyFromConnection:stillImageConnection completionHandler:^(CMSampleBufferRef imageDataSampleBuffer, NSError * error) {
+    [self.stillImageOutput captureStillImageAsynchronouslyFromConnection:stillImageConnection completionHandler:^(CMSampleBufferRef imageDataSampleBuffer, NSError * error) {
         if (error) {
             [self displayErrorOnMainQueue:error withMessage:@"Take picture failed"];
         }
         else {
-            NSData * jpegData = [AVCaptureStillImageOutput jpegStillImageNSDataRepresentation:imageDataSampleBuffer];
-            CFDictionaryRef attachments = CMCopyDictionaryOfAttachments(kCFAllocatorDefault, imageDataSampleBuffer, kCMAttachmentMode_ShouldPropagate);
-            ALAssetsLibrary * library = [ALAssetsLibrary new];
-            [library writeImageDataToSavedPhotosAlbum:jpegData metadata:(__bridge id)attachments completionBlock:^(NSURL *assetURL, NSError *error) {
-                if (error) {
-                    [self displayErrorOnMainQueue:error withMessage:@"Save to camera roll failed"];
-                }
-            }];
-            
-            if (attachments) {
-                CFRelease(attachments);
+            CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(imageDataSampleBuffer);
+            if (! imageBuffer) {
+                NSLog(@"Unable to get imageBuffer from data sample");
             }
+
+            CFDictionaryRef attachments = CMCopyDictionaryOfAttachments(kCFAllocatorDefault, imageDataSampleBuffer, kCMAttachmentMode_ShouldPropagate);
+
+            CIImage * image = [CIImage imageWithCVPixelBuffer:imageBuffer options:(__bridge NSDictionary *)attachments];
+            
+            image = [self filterRotateImage90CW:image];
+            image = [self filterImage:image];
+
+            CGImageRef aCGImage = [_CIContext createCGImage:image fromRect:image.extent];
+
+            if (! aCGImage) {
+                NSLog(@"cannot get a CGImage from image");
+            }
+
+            UIImage * imageToSave = [UIImage imageWithCGImage:aCGImage scale:0 orientation:[self uiOrientationForDeviceOrientation:currentDeviceOrientation]];
+            
+            dispatch_async(dispatch_get_main_queue(), ^{
+                UIImageWriteToSavedPhotosAlbum(imageToSave, self, @selector(image:didFinishSavingWithError:contextInfo:), nil);
+            });
+
+            CGImageRelease(aCGImage);
+
+            if (attachments) CFRelease(attachments);
         }
     }];
+}
+
+- (void)image:(UIImage *)image didFinishSavingWithError:(NSError *)error contextInfo: (void *) contextInfo
+{
+    
+    if (error) {
+        [self displayErrorOnMainQueue:error withMessage:@"Save to camera roll failed"];
+    }
 }
 
 // perform a flash bulb animation using KVO to monitor the value of the capturingStillImage property of the AVCaptureStillImageOutput class
@@ -365,33 +379,32 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
         
         if ( isCapturingStillImage ) {
             // do flash bulb like animation
-            flashView = [[UIView alloc] initWithFrame:self.view.frame];
-            [flashView setBackgroundColor:[UIColor whiteColor]];
-            [flashView setAlpha:0.f];
-            [[[self view] window] addSubview:flashView];
+            _flashView = [[UIView alloc] initWithFrame:self.view.frame];
+            [_flashView setBackgroundColor:[UIColor whiteColor]];
+            [_flashView setAlpha:0.f];
+            [[[self view] window] addSubview:_flashView];
             
             [UIView animateWithDuration:.4f
                              animations:^{
-                                 [flashView setAlpha:1.f];
+                                 [_flashView setAlpha:1.f];
                              }
              ];
         }
         else {
             [UIView animateWithDuration:.4f
                              animations:^{
-                                 [flashView setAlpha:0.f];
+                                 [_flashView setAlpha:0.f];
                              }
                              completion:^(BOOL finished){
-                                 [flashView removeFromSuperview];
+                                 [_flashView removeFromSuperview];
                                  //                                 [flashView release];
-                                 flashView = nil;
+                                 _flashView = nil;
                              }
              ];
         }
     }
 }
 
-/******************************************************************************/
 - (void) checkDeviceAuthorizationStatus
 {
     NSString * mediaType = AVMediaTypeVideo;
@@ -409,8 +422,6 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
         }
     }];
 }
-
-/******************************************************************************/
 
 
 @end
