@@ -262,6 +262,15 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
                ].outputImage;
 }
 
+- (CIImage *) filterRotateImage:(CIImage *)inImage withDegree:(CGFloat)degree
+{
+    return [inImage imageByApplyingTransform:CGAffineTransformMakeRotation(GLKMathDegreesToRadians(degree))];
+}
+
+- (CIImage *) filterRotateImage90CW:(CIImage *)inImage
+{
+    return [self filterRotateImage:inImage withDegree:-90.0f];
+}
 
 - (void) cleanUpTextures
 {
@@ -287,13 +296,13 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
 {
     UIImageOrientation result = (UIImageOrientation)deviceOrientation;
     if ( deviceOrientation == UIDeviceOrientationLandscapeLeft )
-        result = UIImageOrientationUp;
-    else if ( deviceOrientation == UIDeviceOrientationLandscapeRight )
-        result = UIImageOrientationDown;
-    else if ( deviceOrientation == UIDeviceOrientationPortraitUpsideDown)
         result = UIImageOrientationLeft;
-    else // UIDeviceOrientationPortraitUp
+    else if ( deviceOrientation == UIDeviceOrientationLandscapeRight )
         result = UIImageOrientationRight;
+    else if ( deviceOrientation == UIDeviceOrientationPortraitUpsideDown)
+        result = UIImageOrientationDown;
+    else // UIDeviceOrientationPortraitUp
+        result = UIImageOrientationUp;
     return result;
 }
 
@@ -314,13 +323,8 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
 {
     AVCaptureConnection * stillImageConnection = [self.stillImageOutput connectionWithMediaType:AVMediaTypeVideo];
     UIDeviceOrientation currentDeviceOrientation = [[UIDevice currentDevice] orientation];
-//    AVCaptureVideoOrientation avCaptureOrientation = [self avOrientationForDeviceOrientation:currentDeviceOrientation];
-//    
-//    [stillImageConnection setVideoOrientation:avCaptureOrientation];
-//    [stillImageConnection setVideoScaleAndCropFactor:_effectiveScale];
     
     [self.stillImageOutput setOutputSettings:@{
-//        AVVideoCodecKey : AVVideoCodecJPEG
         (id)kCVPixelBufferPixelFormatTypeKey : [NSNumber numberWithInt:kCVPixelFormatType_420YpCbCr8BiPlanarFullRange]
         }];
     [self.stillImageOutput captureStillImageAsynchronouslyFromConnection:stillImageConnection completionHandler:^(CMSampleBufferRef imageDataSampleBuffer, NSError * error) {
@@ -336,7 +340,8 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
             CFDictionaryRef attachments = CMCopyDictionaryOfAttachments(kCFAllocatorDefault, imageDataSampleBuffer, kCMAttachmentMode_ShouldPropagate);
 
             CIImage * image = [CIImage imageWithCVPixelBuffer:imageBuffer options:(__bridge NSDictionary *)attachments];
-
+            
+            image = [self filterRotateImage90CW:image];
             image = [self filterImage:image];
 
             CGImageRef aCGImage = [_CIContext createCGImage:image fromRect:image.extent];
@@ -345,7 +350,7 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
                 NSLog(@"cannot get a CGImage from image");
             }
 
-            UIImage * imageToSave = [UIImage imageWithCGImage:aCGImage scale:1.0f orientation:[self uiOrientationForDeviceOrientation:currentDeviceOrientation]];
+            UIImage * imageToSave = [UIImage imageWithCGImage:aCGImage scale:0 orientation:[self uiOrientationForDeviceOrientation:currentDeviceOrientation]];
             
             dispatch_async(dispatch_get_main_queue(), ^{
                 UIImageWriteToSavedPhotosAlbum(imageToSave, self, @selector(image:didFinishSavingWithError:contextInfo:), nil);
