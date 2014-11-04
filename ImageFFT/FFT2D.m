@@ -12,7 +12,7 @@
 
 #import "FFT2D.h"
 
-@interface FFT2D () {}
+@interface FFT2D ()
 
 @property CGContextRef bitmapContext;
 @property Pixel_8 * bitmap;
@@ -60,12 +60,12 @@ const UInt32 originPixel = 0;
 {
     self = [super init];
 
-    _bytesPerPixel = 1;
-    _bitsPerComponent = 8;
+    self.bytesPerPixel = 1;
+    self.bitsPerComponent = 8;
     
-    _colorSpace = CGColorSpaceCreateDeviceGray();
-    _bitmapInfo = (CGBitmapInfo)kCGImageAlphaNone;
-    _outputImage = nil;
+    self.colorSpace = CGColorSpaceCreateDeviceGray();
+    self.bitmapInfo = (CGBitmapInfo)kCGImageAlphaNone;
+    self.outputImage = nil;
 
     return self;
 }

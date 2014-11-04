@@ -14,18 +14,18 @@
 #import <AssetsLibrary/AssetsLibrary.h>
 #import <CoreVideo/CVOpenGLESTextureCache.h>
 
-@interface ImageFFTViewController () {
-    UIView * _flashView;
+@interface ImageFFTViewController ()
 
-    CIContext * _CIContext;
-    EAGLContext* _EAGLContext;
-    
-    NSString* _sessionPreset;
-    
-    CVOpenGLESTextureCacheRef _videoTextureCache;
-    
-    CGFloat _effectiveScale;
-}
+@property (nonatomic) UIView * flashView;
+
+@property (nonatomic) CIContext * CIContext;
+@property (nonatomic) EAGLContext * EAGLContext;
+
+@property (nonatomic) NSString* sessionPreset;
+
+@property (nonatomic) CVOpenGLESTextureCacheRef videoTextureCache;
+
+@property (nonatomic) CGFloat effectiveScale;
 
 @property (nonatomic) dispatch_queue_t sessionQueue;
 @property (nonatomic) dispatch_queue_t FFTQueue;
@@ -34,11 +34,11 @@
 @property (nonatomic, getter = isDeviceAuthorized) BOOL deviceAuthorized;
 @property (nonatomic, readonly, getter = isSessionRunningAndDeviceAuthorized) BOOL sessionRunningAndDeviceAuthorized;
 
-@property AVCaptureStillImageOutput * stillImageOutput;
+@property (nonatomic) AVCaptureStillImageOutput * stillImageOutput;
 
-@property CGRect primaryViewerBounds;
-@property CGRect secondaryViewerBounds;
-@property FFT2D * aFFT2D;
+@property (nonatomic) CGRect primaryViewerBounds;
+@property (nonatomic) CGRect secondaryViewerBounds;
+@property (nonatomic) FFT2D * aFFT2D;
 
 @end
 
@@ -64,22 +64,22 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
     // Check for device authorization
     [self checkDeviceAuthorizationStatus];
 
-    _EAGLContext = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
+    self.EAGLContext = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
     
-    _CIContext = [CIContext contextWithEAGLContext:_EAGLContext options:@{kCIContextOutputColorSpace: [NSNull null]} ];
+    self.CIContext = [CIContext contextWithEAGLContext:self.EAGLContext options:@{kCIContextOutputColorSpace: [NSNull null]} ];
     
-    if (! _EAGLContext) {
+    if (! self.EAGLContext) {
         NSLog(@"Failed to create ES context");
     }
     
     GLKView * view = (GLKView *)self.view;
-    view.context = _EAGLContext;
+    view.context = self.EAGLContext;
     
 //    self.preferredFramesPerSecond = 60;
     
     view.contentScaleFactor = [UIScreen mainScreen].scale;
     
-    _sessionPreset = AVCaptureSessionPreset352x288;
+    self.sessionPreset = AVCaptureSessionPreset352x288;
     
     CGFloat width = view.frame.size.width * view.contentScaleFactor;
     CGFloat height = view.frame.size.height * view.contentScaleFactor;
@@ -116,14 +116,14 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
 
 - (void) setupGL
 {
-    [EAGLContext setCurrentContext:_EAGLContext];
+    [EAGLContext setCurrentContext:self.EAGLContext];
 }
 
 - (void) setupAVCapture
 {
     dispatch_async(self.sessionQueue, ^{
     #if COREVIDEO_USE_EAGLCONTEXT_CLASS_IN_API
-        CVReturn err = CVOpenGLESTextureCacheCreate(kCFAllocatorDefault, NULL, _EAGLContext, NULL, &_videoTextureCache);
+        CVReturn err = CVOpenGLESTextureCacheCreate(kCFAllocatorDefault, NULL, self.EAGLContext, NULL, &_videoTextureCache);
     #else
         CVReturn err = CVOpenGLESTextureCacheCreate(kCFAllocatorDefault, NULL, (__bridge void *)_context, NULL, &_videoTextureCache);
     #endif
@@ -133,21 +133,21 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
             return;
         }
         
-        [_session beginConfiguration];
+        [self.session beginConfiguration];
         
-        [_session setSessionPreset:_sessionPreset];
+        [self.session setSessionPreset:self.sessionPreset];
         
         AVCaptureDevice* videoDevice = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo];
         if (nil == videoDevice) assert(0);
         NSError* error;
         AVCaptureDeviceInput* videoDeviceInput = [AVCaptureDeviceInput deviceInputWithDevice:videoDevice error:&error];
         if (error) assert(0);
-        [_session addInput:videoDeviceInput];
+        [self.session addInput:videoDeviceInput];
         
 
         self.stillImageOutput = [AVCaptureStillImageOutput new];
         [self.stillImageOutput addObserver:self forKeyPath:@"capturingStillImage" options:NSKeyValueObservingOptionNew context:AVCaptureStillImageIsCapturingStillImageContext];
-        [_session addOutput:self.stillImageOutput];
+        [self.session addOutput:self.stillImageOutput];
         
 
         AVCaptureVideoDataOutput* videoDataOutput = [[AVCaptureVideoDataOutput alloc] init];
@@ -157,13 +157,13 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
             }
          ];
         [videoDataOutput setSampleBufferDelegate:self queue:self.sessionQueue];
-        [_session addOutput:videoDataOutput];
+        [self.session addOutput:videoDataOutput];
 
-        _effectiveScale = 1.0;
+        self.effectiveScale = 1.0;
 
-        [_session commitConfiguration];
+        [self.session commitConfiguration];
         
-        [_session startRunning];
+        [self.session startRunning];
     });
 }
 
@@ -171,14 +171,14 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
 {
     CGRect bounds = {0,0, 256,256};
     
-    self.aFFT2D = [FFT2D FFT2DWithBounds:bounds context:_CIContext];
+    self.aFFT2D = [FFT2D FFT2DWithBounds:bounds context:self.CIContext];
 }
 
 - (void) captureOutput:(AVCaptureOutput *)captureOutput
 	didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
 	fromConnection:(AVCaptureConnection *)connection
 {
-    if (! _videoTextureCache) {
+    if (! self.videoTextureCache) {
         NSLog(@"No video texture cache");
         return;
     }
@@ -197,8 +197,8 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
     CGRect sourceRect = drawImage.extent;
     
     dispatch_async(dispatch_get_main_queue(), ^{
-        [_CIContext drawImage:image inRect:self.secondaryViewerBounds fromRect:sourceRect];
-        [_CIContext drawImage:drawImage inRect:self.primaryViewerBounds fromRect:sourceRect];
+        [self.CIContext drawImage:image inRect:self.secondaryViewerBounds fromRect:sourceRect];
+        [self.CIContext drawImage:drawImage inRect:self.primaryViewerBounds fromRect:sourceRect];
 
         [(GLKView *)self.view display];
     });
@@ -274,7 +274,7 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
 
 - (void) cleanUpTextures
 {
-    CVOpenGLESTextureCacheFlush(_videoTextureCache, 0);
+    CVOpenGLESTextureCacheFlush(self.videoTextureCache, 0);
 }
 
 // utility routing used during image capture to set up capture orientation
@@ -344,7 +344,7 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
             image = [self filterRotateImage90CW:image]; // rotate image to match video portrait orientation
             image = [self filterImage:image];
 
-            CGImageRef aCGImage = [_CIContext createCGImage:image fromRect:image.extent];
+            CGImageRef aCGImage = [self.CIContext createCGImage:image fromRect:image.extent];
 
             if (! aCGImage) {
                 NSLog(@"cannot get a CGImage from image");
@@ -379,26 +379,26 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
         
         if ( isCapturingStillImage ) {
             // do flash bulb like animation
-            _flashView = [[UIView alloc] initWithFrame:self.view.frame];
-            [_flashView setBackgroundColor:[UIColor whiteColor]];
-            [_flashView setAlpha:0.f];
-            [[[self view] window] addSubview:_flashView];
+            self.flashView = [[UIView alloc] initWithFrame:self.view.frame];
+            [self.flashView setBackgroundColor:[UIColor whiteColor]];
+            [self.flashView setAlpha:0.f];
+            [[[self view] window] addSubview:self.flashView];
             
             [UIView animateWithDuration:.4f
                              animations:^{
-                                 [_flashView setAlpha:1.f];
+                                 [self.flashView setAlpha:1.f];
                              }
              ];
         }
         else {
             [UIView animateWithDuration:.4f
                              animations:^{
-                                 [_flashView setAlpha:0.f];
+                                 [self.flashView setAlpha:0.f];
                              }
                              completion:^(BOOL finished){
-                                 [_flashView removeFromSuperview];
+                                 [self.flashView removeFromSuperview];
                                  //                                 [flashView release];
-                                 _flashView = nil;
+                                 self.flashView = nil;
                              }
              ];
         }
