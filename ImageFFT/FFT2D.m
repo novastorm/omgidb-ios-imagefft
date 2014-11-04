@@ -14,32 +14,32 @@
 
 @interface FFT2D ()
 
-@property CGContextRef bitmapContext;
-@property Pixel_8 * bitmap;
+@property (nonatomic) CGContextRef bitmapContext;
+@property (nonatomic) Pixel_8 * bitmap;
 
-@property UInt32 bytesPerPixel;
-@property UInt32 bitsPerComponent;
-@property UInt32 bytesPerRow;
+@property (nonatomic) UInt32 bytesPerPixel;
+@property (nonatomic) UInt32 bitsPerComponent;
+@property (nonatomic) UInt32 bytesPerRow;
 
-@property CGColorSpaceRef colorSpace;
-@property CGBitmapInfo bitmapInfo;
+@property (nonatomic) CGColorSpaceRef colorSpace;
+@property (nonatomic) CGBitmapInfo bitmapInfo;
 
-@property UInt32 log2NWidth;
-@property UInt32 log2NHeight;
+@property (nonatomic) UInt32 log2NWidth;
+@property (nonatomic) UInt32 log2NHeight;
 
-@property DSPSplitComplex splitComplexBuffer;
+@property (nonatomic) DSPSplitComplex splitComplexBuffer;
 
-@property FFTSetup imageAnalysis;
+@property (nonatomic) FFTSetup imageAnalysis;
 
-@property Float32 normalizationFactor;
-@property Float32 scale;
-@property UInt32 FFTLength;
-@property UInt32 log2N;
+@property (nonatomic) Float32 normalizationFactor;
+@property (nonatomic) Float32 scale;
+@property (nonatomic) UInt32 FFTLength;
+@property (nonatomic) UInt32 log2N;
 
-@property UInt32 halfWidth;
-@property UInt32 halfHeight;
+@property (nonatomic) UInt32 halfWidth;
+@property (nonatomic) UInt32 halfHeight;
 
-@property CIImage * outputImage;
+@property (nonatomic) CIImage * outputImage;
 
 @end
 
