@@ -14,6 +14,11 @@
 #import <AssetsLibrary/AssetsLibrary.h>
 #import <CoreVideo/CVOpenGLESTextureCache.h>
 
+typedef enum {
+    displayFFTImage
+    , displayCameraImage
+} HIPDisplayImage;
+
 @interface ImageFFTViewController ()
 
 @property (nonatomic) UIView * flashView;
@@ -39,6 +44,17 @@
 @property (nonatomic) CGRect primaryViewerBounds;
 @property (nonatomic) CGRect secondaryViewerBounds;
 @property (nonatomic) FFT2D * aFFT2D;
+
+@property (nonatomic) HIPDisplayImage primaryViewerDisplayImage;
+@property (nonatomic) HIPDisplayImage secondaryViewerDisplayImage;
+
+@property (nonatomic) CIImage * cameraImage;
+@property (nonatomic) CIImage * fftImage;
+
+@property (nonatomic) CIImage * primaryDisplayImage;
+@property (nonatomic) CIImage * secondaryDisplayImage;
+
+
 
 @end
 
@@ -99,6 +115,9 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
     };
     
     self.sessionQueue = dispatch_queue_create("session queue", DISPATCH_QUEUE_SERIAL);
+    
+    self.primaryViewerDisplayImage = displayFFTImage;
+    self.secondaryViewerDisplayImage = displayCameraImage;
 
     [self setupFFTAnalysis];
     [self setupGL];
@@ -188,17 +207,29 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
     // Get a CMSampleBuffer's Core Video image buffer for the media data
     CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
     
-    CIImage * image = [CIImage imageWithCVPixelBuffer:imageBuffer];
+    self.cameraImage = [CIImage imageWithCVPixelBuffer:imageBuffer];
     
-    image = [self filterImage:image];
+    self.cameraImage = [self filterImage:self.cameraImage];
 
-    CIImage * drawImage = [self.aFFT2D FFTWithCIImage:image];
+    self.fftImage = [self.aFFT2D FFTWithCIImage:self.cameraImage];
     
-    CGRect sourceRect = drawImage.extent;
+    if (self.primaryViewerDisplayImage == displayCameraImage) {
+        self.primaryDisplayImage = self.cameraImage;
+    }
+    else {
+        self.primaryDisplayImage = self.fftImage;
+    }
+    
+    if (self.secondaryViewerDisplayImage == displayFFTImage) {
+        self.secondaryDisplayImage = self.fftImage;
+    }
+    else {
+        self.secondaryDisplayImage = self.cameraImage;
+    }
     
     dispatch_async(dispatch_get_main_queue(), ^{
-        [self.CIContext drawImage:image inRect:self.secondaryViewerBounds fromRect:sourceRect];
-        [self.CIContext drawImage:drawImage inRect:self.primaryViewerBounds fromRect:sourceRect];
+        [self.CIContext drawImage:self.primaryDisplayImage inRect:self.primaryViewerBounds fromRect:self.primaryDisplayImage.extent];
+        [self.CIContext drawImage:self.secondaryDisplayImage inRect:self.secondaryViewerBounds fromRect:self.secondaryDisplayImage.extent];
 
         [(GLKView *)self.view display];
     });
