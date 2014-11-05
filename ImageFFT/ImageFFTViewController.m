@@ -227,7 +227,7 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
         self.secondaryDisplayImage = self.cameraImage;
     }
     
-    dispatch_async(dispatch_get_main_queue(), ^{
+    dispatch_sync(dispatch_get_main_queue(), ^{
         [self.CIContext drawImage:self.primaryDisplayImage inRect:self.primaryViewerBounds fromRect:self.primaryDisplayImage.extent];
         [self.CIContext drawImage:self.secondaryDisplayImage inRect:self.secondaryViewerBounds fromRect:self.secondaryDisplayImage.extent];
 
@@ -392,6 +392,16 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
             if (attachments) CFRelease(attachments);
         }
     }];
+}
+- (IBAction)swapDisplayWindows:(id)sender {
+    if (self.primaryViewerDisplayImage == displayCameraImage) {
+        self.primaryViewerDisplayImage = displayFFTImage;
+        self.secondaryViewerDisplayImage = displayCameraImage;
+    }
+    else { //if (self.primaryViewerDisplayImage == displayFFTImage) {
+        self.primaryViewerDisplayImage = displayCameraImage;
+        self.secondaryViewerDisplayImage = displayFFTImage;
+    }
 }
 
 - (void)image:(UIImage *)image didFinishSavingWithError:(NSError *)error contextInfo: (void *) contextInfo
