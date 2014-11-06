@@ -15,9 +15,14 @@
 #import <CoreVideo/CVOpenGLESTextureCache.h>
 
 typedef enum {
-    displayFFTImage
-    , displayCameraImage
+    displayImageFFT
+    , displayImageCamera
 } HIPDisplayImage;
+
+typedef enum {
+    displayModeLive
+    , displayModeStill
+} HIPDisplayMode;
 
 @interface ImageFFTViewController ()
 
@@ -54,6 +59,12 @@ typedef enum {
 @property (nonatomic) CIImage * primaryDisplayImage;
 @property (nonatomic) CIImage * secondaryDisplayImage;
 
+@property (weak, nonatomic) IBOutlet UIButton *ButtonA;
+@property (weak, nonatomic) IBOutlet UIButton *ButtonB;
+@property (weak, nonatomic) IBOutlet UIButton *ButtonC;
+@property (weak, nonatomic) IBOutlet UIButton *ButtonD;
+
+@property (nonatomic) HIPDisplayMode displayMode;
 
 
 @end
@@ -116,8 +127,10 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
     
     self.sessionQueue = dispatch_queue_create("session queue", DISPATCH_QUEUE_SERIAL);
     
-    self.primaryViewerDisplayImage = displayFFTImage;
-    self.secondaryViewerDisplayImage = displayCameraImage;
+    self.primaryViewerDisplayImage = displayImageFFT;
+    self.secondaryViewerDisplayImage = displayImageCamera;
+    
+    self.displayMode = displayModeLive;
 
     [self setupFFTAnalysis];
     [self setupGL];
@@ -213,20 +226,21 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
 
     self.fftImage = [self.aFFT2D FFTWithCIImage:self.cameraImage];
     
-    if (self.primaryViewerDisplayImage == displayCameraImage) {
+    if (self.primaryViewerDisplayImage == displayImageCamera) {
         self.primaryDisplayImage = self.cameraImage;
     }
     else {
         self.primaryDisplayImage = self.fftImage;
     }
     
-    if (self.secondaryViewerDisplayImage == displayFFTImage) {
+    if (self.secondaryViewerDisplayImage == displayImageFFT) {
         self.secondaryDisplayImage = self.fftImage;
     }
     else {
         self.secondaryDisplayImage = self.cameraImage;
     }
     
+
     dispatch_sync(dispatch_get_main_queue(), ^{
         [self.CIContext drawImage:self.primaryDisplayImage inRect:self.primaryViewerBounds fromRect:self.primaryDisplayImage.extent];
         [self.CIContext drawImage:self.secondaryDisplayImage inRect:self.secondaryViewerBounds fromRect:self.secondaryDisplayImage.extent];
@@ -393,14 +407,59 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
         }
     }];
 }
-- (IBAction)swapDisplayWindows:(id)sender {
-    if (self.primaryViewerDisplayImage == displayCameraImage) {
-        self.primaryViewerDisplayImage = displayFFTImage;
-        self.secondaryViewerDisplayImage = displayCameraImage;
+
+- (IBAction)swapDisplayWindows:(id)sender
+{
+    if (self.primaryViewerDisplayImage == displayImageCamera) {
+        self.primaryViewerDisplayImage = displayImageFFT;
+        self.secondaryViewerDisplayImage = displayImageCamera;
     }
-    else { //if (self.primaryViewerDisplayImage == displayFFTImage) {
-        self.primaryViewerDisplayImage = displayCameraImage;
-        self.secondaryViewerDisplayImage = displayFFTImage;
+    else {
+        self.primaryViewerDisplayImage = displayImageCamera;
+        self.secondaryViewerDisplayImage = displayImageFFT;
+    }
+}
+
+- (void) setDisplayMode:(HIPDisplayMode)displayMode
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (displayMode == displayModeLive) {
+            self.ButtonA.hidden = true;
+            [self.ButtonB setTitle:@"Still" forState:UIControlStateNormal];
+            self.ButtonB.enabled = true;
+            self.ButtonD.hidden = false;
+        }
+        else if (displayMode == displayModeStill) {
+            self.ButtonA.hidden = false;
+//            self.ButtonA.enabled = true;
+            [self.ButtonB setTitle:@"Load" forState:UIControlStateNormal];
+            self.ButtonB.enabled = true;
+            self.ButtonD.hidden = true;
+        }
+    });
+}
+
+- (IBAction)showLiveImage:(id)sender
+{
+    if ([self.session isRunning]) return;
+
+    dispatch_async(self.sessionQueue, ^{
+        [self.session startRunning];
+        self.displayMode = displayModeLive;
+    });
+}
+
+- (IBAction)loadStillImage:(id)sender
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        self.ButtonB.enabled = false;
+    });
+    
+    if ([self.session isRunning]) {
+        dispatch_async(self.sessionQueue, ^{
+            [self.session stopRunning];
+            self.displayMode = displayModeStill;
+        });
     }
 }
 

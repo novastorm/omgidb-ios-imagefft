@@ -22,6 +22,9 @@
                                 <state key="normal" title="Snap">
                                     <color key="titleShadowColor" white="0.5" alpha="1" colorSpace="calibratedWhite"/>
                                 </state>
+                                <variation key="widthClass=compact" misplaced="YES">
+                                    <rect key="frame" x="258" y="493" width="40" height="30"/>
+                                </variation>
                                 <connections>
                                     <action selector="takePicture:" destination="vXZ-lx-hvc" eventType="touchUpInside" id="5o0-7d-xgH"/>
                                 </connections>
@@ -31,39 +34,96 @@
                                 <state key="normal" title="Swap">
                                     <color key="titleShadowColor" white="0.5" alpha="1" colorSpace="calibratedWhite"/>
                                 </state>
+                                <variation key="widthClass=compact" misplaced="YES">
+                                    <rect key="frame" x="258" y="371" width="40" height="30"/>
+                                </variation>
                                 <connections>
                                     <action selector="swapDisplayWindows:" destination="vXZ-lx-hvc" eventType="touchUpInside" id="kU2-gy-XQV"/>
+                                </connections>
+                            </button>
+                            <button opaque="NO" contentMode="scaleToFill" ambiguous="YES" misplaced="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="Igv-Eu-VvV">
+                                <rect key="frame" x="258" y="493" width="36" height="30"/>
+                                <state key="normal" title="Still">
+                                    <color key="titleShadowColor" white="0.5" alpha="1" colorSpace="calibratedWhite"/>
+                                </state>
+                                <variation key="widthClass=compact" misplaced="YES">
+                                    <rect key="frame" x="16" y="493" width="40" height="30"/>
+                                </variation>
+                                <connections>
+                                    <action selector="loadStillImage:" destination="vXZ-lx-hvc" eventType="touchUpInside" id="52S-dC-T2J"/>
+                                </connections>
+                            </button>
+                            <button hidden="YES" opaque="NO" contentMode="scaleToFill" ambiguous="YES" misplaced="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="6r1-Dt-fM1">
+                                <rect key="frame" x="258" y="371" width="39" height="30"/>
+                                <state key="normal" title="Live">
+                                    <color key="titleShadowColor" white="0.5" alpha="1" colorSpace="calibratedWhite"/>
+                                </state>
+                                <variation key="widthClass=compact" misplaced="YES">
+                                    <rect key="frame" x="16" y="371" width="40" height="30"/>
+                                </variation>
+                                <connections>
+                                    <action selector="showLiveImage:" destination="vXZ-lx-hvc" eventType="touchUpInside" id="nne-Dj-wyy"/>
                                 </connections>
                             </button>
                         </subviews>
                         <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="calibratedWhite"/>
                         <constraints>
-                            <constraint firstAttribute="trailingMargin" secondItem="Bpu-2t-tbw" secondAttribute="trailing" constant="10" id="80M-s5-f5p"/>
+                            <constraint firstAttribute="trailingMargin" secondItem="Bpu-2t-tbw" secondAttribute="trailing" constant="10" id="80M-s5-f5p">
+                                <variation key="widthClass=compact" constant="6"/>
+                            </constraint>
                             <constraint firstItem="Bpu-2t-tbw" firstAttribute="top" secondItem="SYF-8O-wGt" secondAttribute="bottom" constant="92" id="Aek-bE-SyO"/>
-                            <constraint firstAttribute="trailingMargin" secondItem="SYF-8O-wGt" secondAttribute="trailing" constant="7" id="KzQ-aj-dUj"/>
+                            <constraint firstItem="Igv-Eu-VvV" firstAttribute="top" secondItem="6r1-Dt-fM1" secondAttribute="bottom" constant="92" id="KMD-Au-8uA"/>
+                            <constraint firstAttribute="trailingMargin" secondItem="SYF-8O-wGt" secondAttribute="trailing" constant="7" id="KzQ-aj-dUj">
+                                <variation key="widthClass=compact" constant="6"/>
+                            </constraint>
                             <constraint firstItem="2fi-mo-0CV" firstAttribute="top" secondItem="Bpu-2t-tbw" secondAttribute="bottom" constant="45" id="T5d-cE-RKw"/>
+                            <constraint firstItem="6r1-Dt-fM1" firstAttribute="leading" secondItem="Igv-Eu-VvV" secondAttribute="leading" id="ein-ce-O8p"/>
                             <constraint firstItem="SYF-8O-wGt" firstAttribute="leading" secondItem="Bpu-2t-tbw" secondAttribute="leading" id="fct-e1-c1U"/>
+                            <constraint firstItem="6r1-Dt-fM1" firstAttribute="leading" secondItem="kh9-bI-dsS" secondAttribute="leadingMargin" id="nVy-0Q-ggr"/>
+                            <constraint firstItem="2fi-mo-0CV" firstAttribute="top" secondItem="Igv-Eu-VvV" secondAttribute="bottom" constant="45" id="zEB-R0-07M"/>
                         </constraints>
                         <variation key="default">
+                            <mask key="subviews">
+                                <exclude reference="Igv-Eu-VvV"/>
+                                <exclude reference="6r1-Dt-fM1"/>
+                            </mask>
                             <mask key="constraints">
+                                <exclude reference="ein-ce-O8p"/>
+                                <exclude reference="nVy-0Q-ggr"/>
                                 <exclude reference="KzQ-aj-dUj"/>
+                                <exclude reference="KMD-Au-8uA"/>
                                 <exclude reference="80M-s5-f5p"/>
+                                <exclude reference="zEB-R0-07M"/>
                             </mask>
                         </variation>
                         <variation key="widthClass=compact">
+                            <mask key="subviews">
+                                <include reference="Igv-Eu-VvV"/>
+                                <include reference="6r1-Dt-fM1"/>
+                            </mask>
                             <mask key="constraints">
+                                <include reference="ein-ce-O8p"/>
+                                <include reference="nVy-0Q-ggr"/>
                                 <include reference="KzQ-aj-dUj"/>
+                                <include reference="KMD-Au-8uA"/>
                                 <include reference="80M-s5-f5p"/>
+                                <include reference="zEB-R0-07M"/>
                             </mask>
                         </variation>
                     </view>
                     <nil key="simulatedStatusBarMetrics"/>
                     <simulatedOrientationMetrics key="simulatedOrientationMetrics"/>
                     <simulatedScreenMetrics key="simulatedDestinationMetrics" type="retina4"/>
+                    <connections>
+                        <outlet property="ButtonA" destination="6r1-Dt-fM1" id="7Fr-IT-VYO"/>
+                        <outlet property="ButtonB" destination="Igv-Eu-VvV" id="3mf-Qz-lVk"/>
+                        <outlet property="ButtonC" destination="SYF-8O-wGt" id="LM3-hJ-9Cb"/>
+                        <outlet property="ButtonD" destination="Bpu-2t-tbw" id="Cu2-Kq-1AG"/>
+                    </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="x5A-6p-PRh" sceneMemberID="firstResponder"/>
             </objects>
-            <point key="canvasLocation" x="140" y="160"/>
+            <point key="canvasLocation" x="139.5" y="160"/>
         </scene>
     </scenes>
 </document>
