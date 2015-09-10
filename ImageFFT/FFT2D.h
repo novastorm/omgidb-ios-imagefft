@@ -18,7 +18,7 @@
 - (instancetype) initWithBounds:(CGRect)bounds context:(CIContext *)context;
 
 @property (nonatomic) CIContext * context;
-@property CGRect bounds;
+@property (nonatomic) CGRect bounds;
 
 - (CIImage *) FFTWithCGImage:(CGImageRef)image;
 
