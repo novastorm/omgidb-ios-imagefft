@@ -180,10 +180,9 @@
 			};
 			buildConfigurationList = 3E7BAFCF19A285EA00BB6A3B /* Build configuration list for PBXProject "ImageFFT" */;
 			compatibilityVersion = "Xcode 3.2";
-			developmentRegion = English;
+			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				English,
 				en,
 				Base,
 			);
