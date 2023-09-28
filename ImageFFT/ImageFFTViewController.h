@@ -10,8 +10,7 @@
 #import <GLKit/GLKit.h>
 #import <UIKit/UIKit.h>
 
-@interface ImageFFTViewController : GLKViewController <AVCaptureVideoDataOutputSampleBufferDelegate>
-
+@interface ImageFFTViewController : GLKViewController <AVCaptureVideoDataOutputSampleBufferDelegate, AVCapturePhotoCaptureDelegate>
 
 @end
 
