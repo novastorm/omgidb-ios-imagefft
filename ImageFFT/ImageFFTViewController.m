@@ -74,7 +74,7 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    
+        
     self.session = [[AVCaptureSession alloc] init];
     
     // Check for device authorization
@@ -360,89 +360,34 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
 
 - (IBAction)takePicture:(id)sender
 {
-    AVCaptureConnection* stillImageConnection = [self.stillImageOutput connectionWithMediaType:AVMediaTypeVideo];
-    UIDeviceOrientation currentDeviceOrientation = [[UIDevice currentDevice] orientation];
     AVCapturePhotoSettings* stillImageOutputSettings = [[AVCapturePhotoSettings alloc] init];
     stillImageOutputSettings.previewPhotoFormat = @{
         (id)kCVPixelBufferPixelFormatTypeKey : [NSNumber numberWithInt:kCVPixelFormatType_420YpCbCr8BiPlanarFullRange]
     };
     
-//    [self.stillImageOutput outputSettings:@{
-//        (id)kCVPixelBufferPixelFormatTypeKey : [NSNumber numberWithInt:kCVPixelFormatType_420YpCbCr8BiPlanarFullRange]
-//    }];
-//    [self.stillImageOutput captureStillImageAsynchronouslyFromConnection:stillImageConnection 
-//                                                       completionHandler:^(CMSampleBufferRef imageDataSampleBuffer, NSError * error) {
-//        if (error) {
-//            [self displayErrorOnMainQueue:error withMessage:@"Take picture failed"];
-//        }
-//        else {
-//            CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(imageDataSampleBuffer);
-//            if (! imageBuffer) {
-//                NSLog(@"Unable to get imageBuffer from data sample");
-//            }
-//            
-//            CFDictionaryRef attachments = CMCopyDictionaryOfAttachments(kCFAllocatorDefault, imageDataSampleBuffer, kCMAttachmentMode_ShouldPropagate);
-//            
-//            CIImage * image = [CIImage imageWithCVPixelBuffer:imageBuffer options:(__bridge NSDictionary *)attachments];
-//            
-//            image = [self filterRotateImage90CW:image]; // rotate image to match video portrait orientation
-//            image = [self filterImage:image];
-//            
-//            CGImageRef aCGImage = [self.CIContext createCGImage:image fromRect:image.extent];
-//            
-//            if (! aCGImage) {
-//                NSLog(@"cannot get a CGImage from image");
-//            }
-//            
-//            UIImage * imageToSave = [UIImage imageWithCGImage:aCGImage scale:0 orientation:[self uiOrientationForDeviceOrientation:currentDeviceOrientation]];
-//            
-//            dispatch_async(dispatch_get_main_queue(), ^{
-//                UIImageWriteToSavedPhotosAlbum(imageToSave, self, @selector(image:didFinishSavingWithError:contextInfo:), nil);
-//            });
-//            
-//            CGImageRelease(aCGImage);
-//            
-//            if (attachments) CFRelease(attachments);
-//        }
-//    }];
     [self.stillImageOutput capturePhotoWithSettings:stillImageOutputSettings delegate:self];
     
 }
 
 - (void)captureOutput:(AVCapturePhotoOutput *)output didFinishProcessingPhoto:(AVCapturePhoto *)photo error:(NSError *)error
+
 {
     if (error) {
         [self displayErrorOnMainQueue:error withMessage:@"Take picture failed"];
     }
     else {
-//        CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(imageDataSampleBuffer);
-//        if (! imageBuffer) {
-//            NSLog(@"Unable to get imageBuffer from data sample");
-//        }
-//        
-//        CFDictionaryRef attachments = CMCopyDictionaryOfAttachments(kCFAllocatorDefault, imageDataSampleBuffer, kCMAttachmentMode_ShouldPropagate);
-//        
-//        CIImage * image = [CIImage imageWithCVPixelBuffer:imageBuffer options:(__bridge NSDictionary *)attachments];
-//        
-//        image = [self filterRotateImage90CW:image]; // rotate image to match video portrait orientation
-//        image = [self filterImage:image];
-//        
-//        CGImageRef aCGImage = [self.CIContext createCGImage:image fromRect:image.extent];
-//        
-//        if (! aCGImage) {
-//            NSLog(@"cannot get a CGImage from image");
-//        }
-//        
-//        UIImage * imageToSave = [UIImage imageWithCGImage:aCGImage scale:0 orientation:[self uiOrientationForDeviceOrientation:currentDeviceOrientation]];
-//        
-//        dispatch_async(dispatch_get_main_queue(), ^{
-//            UIImageWriteToSavedPhotosAlbum(imageToSave, self, @selector(image:didFinishSavingWithError:contextInfo:), nil);
-//        });
-//        
-//        CGImageRelease(aCGImage);
-//        
-//        if (attachments) CFRelease(attachments);
+        UIDeviceOrientation currentDeviceOrientation = [[UIDevice currentDevice] orientation];
+        CGImageRef aCGImageRef = [photo CGImageRepresentation];
+
+        if (! aCGImageRef) {
+            NSLog(@"cannot get a CGImage from image");
+        }
         
+        UIImage * imageToSave = [UIImage imageWithCGImage:aCGImageRef scale:0 orientation:[self uiOrientationForDeviceOrientation:currentDeviceOrientation]];
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            UIImageWriteToSavedPhotosAlbum(imageToSave, self, @selector(image:didFinishSavingWithError:contextInfo:), nil);
+        });
     }
 
 }

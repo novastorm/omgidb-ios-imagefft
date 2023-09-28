@@ -23,7 +23,9 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Camera data is recorded and feed through the Transformer. Video data is retained if save is requested.</string>
+	<string>Camera data is recorded and feed through the Transformer. Video data is not retained.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Save captures to photo app</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
 	<key>UIRequiredDeviceCapabilities</key>
