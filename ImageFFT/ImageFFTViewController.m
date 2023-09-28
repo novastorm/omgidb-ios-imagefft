@@ -74,7 +74,7 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-        
+    
     self.session = [[AVCaptureSession alloc] init];
     
     // Check for device authorization
@@ -346,15 +346,16 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
 - (void)displayErrorOnMainQueue:(NSError *)error withMessage:(NSString *)message
 {
     dispatch_async(dispatch_get_main_queue(), ^(void) {
-        UIAlertView *alertView = [
-            [UIAlertView alloc] 
-            initWithTitle:[NSString stringWithFormat:@"%@ (%d)", message, (int)[error code]]
+        UIAlertController* alert = [
+            UIAlertController alertControllerWithTitle:[NSString stringWithFormat:@"%@ (%d)", message, (int)[error code]]
             message:[error localizedDescription]
-            delegate:nil
-            cancelButtonTitle:@"Dismiss"
-            otherButtonTitles:nil
+            preferredStyle:UIAlertControllerStyleAlert
             ];
-        [alertView show];
+        UIAlertAction* cancelAction = [
+            UIAlertAction actionWithTitle:@"Dismiss" style:UIAlertActionStyleCancel handler:^(UIAlertAction * _Nonnull action) {}
+            ];
+        [alert addAction:cancelAction];
+        [self presentViewController:alert animated:YES completion:nil];
     });
 }
 
@@ -378,7 +379,7 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
     else {
         UIDeviceOrientation currentDeviceOrientation = [[UIDevice currentDevice] orientation];
         CGImageRef aCGImageRef = [photo CGImageRepresentation];
-
+        
         if (! aCGImageRef) {
             NSLog(@"cannot get a CGImage from image");
         }
@@ -389,7 +390,7 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
             UIImageWriteToSavedPhotosAlbum(imageToSave, self, @selector(image:didFinishSavingWithError:contextInfo:), nil);
         });
     }
-
+    
 }
 
 
@@ -427,7 +428,6 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
             }
                              completion:^(BOOL finished){
                 [self.flashView removeFromSuperview];
-                //                                 [flashView release];
                 self.flashView = nil;
             }
             ];
@@ -446,7 +446,17 @@ static void * AVCaptureStillImageIsCapturingStillImageContext = &AVCaptureStillI
         }
         else {
             dispatch_async(dispatch_get_main_queue(), ^{
-                [[[UIAlertView alloc] initWithTitle:@"ImageFFT!" message:@"ImageFFT does not have permission to use Camera, please change privacy settings" delegate:self cancelButtonTitle:@"OK" otherButtonTitles:nil] show];
+                UIAlertController* alert = [
+                    UIAlertController alertControllerWithTitle:@"ImageFFT!"
+                    message:@"ImageFFT does not have permission to use Camera, please change privacy settings"
+                    preferredStyle:UIAlertControllerStyleAlert
+                    ];
+                UIAlertAction* cancelAction = [
+                    UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:^(UIAlertAction * _Nonnull action) {}
+                    ];
+                [alert addAction:cancelAction];
+                [self presentViewController:alert animated:YES completion:nil];
+
                 self.deviceAuthorized = NO;
             });
         }
